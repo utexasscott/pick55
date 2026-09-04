@@ -1,0 +1,23 @@
+# Dependencies
+/vendor/
+/scrape/odds/node_modules/
+
+# Local environment config (copy from inc/_config.example.php)
+/inc/_config.php
+
+# Scraper output
+/scrape/raw/
+/scrape/odds/pages/**/*.html
+
+# Legacy SVN metadata
+.svn/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Claude Code local overrides
+.claude/settings.local.json

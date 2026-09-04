@@ -1,0 +1,16 @@
+{
+    "name": "threecampus/pick55",
+    "type": "project",
+    "authors": [
+        {
+            "name": "rusty fausak",
+            "email": "rfausak@threecampus.com"
+        }
+    ],
+    "require": {
+        "illuminate/database": "^8",
+        "illuminate/events": "^8.58",
+        "sendgrid/sendgrid": "~7",
+        "guzzlehttp/guzzle": "^7.3"
+    }
+}

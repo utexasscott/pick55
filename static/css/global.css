@@ -1,0 +1,238 @@
+.container {
+	padding-right: var(--bs-gutter-x,.2rem);
+	padding-left: var(--bs-gutter-x,.2rem);
+}
+.brand {
+	/* #69FCBA */
+	font-size: 36px;
+	font-weight: 300;
+	padding-left: 0.5rem;
+}
+.brand-sub {
+	font-weight: bold;
+	color: #fff;
+}
+.adminbar-breadcrumb a {
+	color: rgba(255, 255, 255, 0.9);
+	text-decoration: underline;
+}
+.adminbar-breadcrumb a:hover {
+	color: #fff;
+}
+.bg-me {
+	background-color: #fff9d7;
+}
+.bg-lighten {
+	background-color: rgba(255, 255, 255, 0.5);
+}
+.btn-outline-admin {
+	border-color: #fffc6f;
+	color: #e5ea95;
+}
+.bg-dark2 {
+	background-color: rgb(53, 57, 61);
+}
+.bg-light2 {
+	background-color: rgba(0, 0, 0, 0.08);
+}
+.bg-light3 {
+	background-color: #ddd;
+}
+.bg-gold {
+	background-color: gold;
+	color: rgba(0, 0, 0, 0.6);
+}
+.bg-silver {
+	background-color: silver;
+	color: rgba(0, 0, 0, 0.6);
+}
+.bg-bronze {
+	background-color: #CD7F32;
+}
+.td-btns {
+	min-height: 23px;
+	display: flex;
+	align-items: center;
+}
+.td-btns .btn {
+	display: block;
+}
+.table-sm .td-btns {
+	min-height: 24px;
+}
+.text-ncaa { color: #c0392b; }
+.text-nfl { color: #27ae60; }
+.text-ou { color: #9b59b6; }
+.text-spread { color: #e67e22; }
+.btn-xs {
+	line-height: 1;
+	padding: 2px 8px 3px;
+	font-size: 12px;
+}
+.btn-darken {
+	background-color: rgba(0, 0, 0, 0.2);
+	border-color: rgba(0, 0, 0, 0.4);
+}
+.btn-darken:hover {
+	background-color: rgba(0, 0, 0, 0.4);
+}
+.btn-placeholder {
+	background-color: transparent;
+	cursor: default;
+}
+.display-6 a {
+	color: #80a7bd;
+	text-decoration: none;
+}
+.alert:last-child {
+	margin-bottom: 0;
+}
+.card > .table-responsive:last-child > .table {
+	margin-bottom: 0;
+}
+body {
+	font-size: 14px;
+	font-family: Roboto, Calibri, Helvetica, Verdana, sans-serif;
+}
+.card {
+	border-color: rgba(0, 0, 0, 0.25);
+}
+.td-picked,
+.td-right,
+.td-wrong,
+.td-auto {
+	color: rgba(0, 0, 0, 0.5);
+}
+.td-picked,
+.td-picked2 {
+	background-color: #cae1f0!important;
+}
+.td-right,
+.td-right2 {
+	background-color: #CDF0CA!important;
+}
+.td-right-what-if {
+	background: repeating-linear-gradient(
+		-45deg,
+		#CDF0CA,
+		#CDF0CA 10px,
+		#aedaab 10px,
+		#aedaab 20px
+	);
+}
+.td-wrong,
+.td-wrong2 {
+	background-color: #F0CFCF!important;
+}
+.td-wrong-what-if {
+	background: repeating-linear-gradient(
+		-45deg,
+		#F0CFCF,
+		#F0CFCF 10px,
+		#e8bfbf 10px,
+		#e8bfbf 20px
+	);
+}
+.td-auto,
+.td-auto2 {
+	background-color: #D6C0EF!important;
+}
+.td-right-what-if,
+.td-wrong-what-if,
+.td-picked2,
+.td-right2,
+.td-wrong2,
+.td-auto2 {
+	color: rgba(0, 0, 0, 0.8);
+}
+.small-names {
+	font-size: 12px;
+	line-height: 1.1;
+}
+.small-multiplier {
+	font-weight: bold;
+	width: 25px;
+	text-align: right;
+	display: inline-block;
+}
+.line-height-1 {
+	line-height: 1;
+}
+a {
+	text-decoration: none;
+	color: #3082fb;
+}
+a:hover {
+	color: #d01111;
+}
+.btn {
+	transition: none;
+}
+.cell-link {
+	padding: 0!important;
+}
+.cell-link > a {
+	padding: .25rem 0.75rem;
+	display: block;
+}
+.cell-link > a:hover {
+	background-color: #3082fb!important;
+	color: #fff!important;
+}
+.link-muted a,
+a.link-muted {
+	color: #777;
+	border-bottom: 1px dotted rgba(0, 0, 0, 0.4);
+}
+.link-muted a:hover,
+a.link-muted:hover {
+	color: #333;
+}
+.pop-overlay {
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 100%;
+	padding: 0.5rem 1.5rem;
+	text-align: center;
+}
+.hidden {
+	display: none;
+}
+.splash-icon {
+	font-size: 60px;
+	color: rgba(0, 0, 0, 0.2);
+	line-height: 1;
+	margin-bottom: 1rem;
+	text-align: center;
+}
+.table-sortable th[data-sort] {
+	cursor: pointer;
+}
+.table-sortable th[data-sort]:after {
+	font-family: "Font Awesome 5 Free";
+	content: "\f0dc";
+	display: inline-block;
+	float: right;
+	padding: 0 1px 0 3px;
+	vertical-align: middle;
+	color: #999;
+	font-weight: 900;
+}
+.table-sortable th[data-sort].sorting-asc:after {
+	content: "\f0de";
+	color: #3082fb;
+}
+.table-sortable th[data-sort].sorting-desc:after {
+	content: "\f0dd";
+	color: #3082fb;
+}
+.ck-game:hover {
+	cursor: pointer;
+}
+.ck-game-off:hover {
+	background-color: #ffffd8;
+}
+.ck-game-on {
+	background-color: #afceaf;
+}

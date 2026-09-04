@@ -1,0 +1,10 @@
+RewriteEngine On
+RewriteBase /
+RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
+RedirectMatch 403 ^.*/inc/.*$
+RedirectMatch 403 ^.*/vendor/.*$
+RedirectMatch 403 ^.*/scrape/.*$
+RedirectMatch 403 README\.md$
+RedirectMatch 403 composer\.json$
+RedirectMatch 403 composer\.lock$
