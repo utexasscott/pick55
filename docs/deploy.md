@@ -4,8 +4,8 @@
 
 ## Where production runs
 
-- A DigitalOcean droplet. Hostname, IP, OS, web root, PHP version, and the deploying Unix user are all **(unconfirmed — ask)**.
-- Until 2026-09-04 deploys ran from a Beanstalk SVN post-commit hook tagged `[deploy: pick55]`. That hook is dead: the SVN repo is no longer updated. **Whether the droplet still holds an SVN working copy at the web root is (unconfirmed — ask).**
+- A DigitalOcean droplet (owner, 2026-09-07): public IPv4 `143.198.236.171`, private IP `10.124.0.2`, domain `pick55.com`. OS, web root, PHP version, and the deploying Unix user are **(unconfirmed — measured once Claude has SSH)**.
+- Until 2026-09-04 deploys ran from a Beanstalk SVN post-commit hook tagged `[deploy: pick55]`. That hook is dead: the SVN repo is no longer updated. **The site is still running from that last SVN deployment** (owner, 2026-09-07), so the web root is an SVN working copy that must be replaced by a git clone before the first git deploy.
 
 ## The rule: commit freely, push on go
 

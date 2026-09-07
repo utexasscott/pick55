@@ -28,51 +28,47 @@ If a task turns out to need `er_users` columns, the fix is a view exposing only 
 |---|---|
 | Server | WampServer MySQL 5.7.44, service `wampmysqld64`, port 3306 |
 | Credentials | `root`, empty password |
-| Pick55 database | **does not exist yet** — needs a dump from production |
-| Client | no `mysql` CLI on PATH; use PHP (`php -r` with mysqli) or the app's own Eloquent connection |
-| Web | Apache (wamp64) serves `c:\wamp\www` as document root, so the app is at `http://127.0.0.1/pick55/` |
+| Pick55 database | `pick`, loaded 2026-09-07 from a full production dump (`C:\Users\utexa\Downloads\pick.sql`, contains `er_users` PII, never copy it into the repo) |
+| Client | `C:\wamp64\bin\mysql\mysql5.7.44\bin\mysql.exe` and `mysqldump.exe` (not on PATH); PHP mysqli also works |
+| Web | Apache (wamp64) serves `c:\wamp\www` as document root, so the app is at `http://127.0.0.1/pick55/` — renders as of 2026-09-07 |
+| Config | `inc/_config.php` exists locally (git-ignored): root/no password, database `pick`, mail redirected to the owner |
 
-Once a dump exists: create database `pick55`, load the dump, then copy `inc/_config.example.php` to `inc/_config.php` with `db.database = 'pick55'`.
+Schema snapshot: `db/schema.sql` is produced by
 
-## Production (the droplet) — not yet provisioned
-
-Design, mirroring what the owner already runs on other servers: a dedicated Unix account for Claude, key-only SSH, and a MySQL account reached over an SSH tunnel to `127.0.0.1:3306`, so nothing new is exposed to the internet.
-
-Everything in this section is **(unconfirmed — ask)** until provisioned.
-
-### Owner-side provisioning
-
-```bash
-# 1. Unix account for Claude (no password, key only)
-sudo adduser --disabled-password claude
-sudo -u claude mkdir -m 700 /home/claude/.ssh
-# paste the public key Claude hands over into /home/claude/.ssh/authorized_keys (mode 600)
+```
+C:\wamp64\bin\mysql\mysql5.7.44\bin\mysqldump.exe -h 127.0.0.1 -u root --no-data --skip-dump-date --skip-comments pick
 ```
 
-```sql
--- 2. MySQL account: read/write on everything except er_users.
---    MySQL has no "all but one table" grant, so grant per table.
---    Host is 127.0.0.1: the SSH tunnel arrives as TCP loopback, not the unix socket.
-CREATE USER 'claude'@'127.0.0.1' IDENTIFIED BY '<generate>';
--- run the output of this against the server:
-SELECT CONCAT('GRANT SELECT, INSERT, UPDATE, DELETE ON `', table_schema, '`.`', table_name, '` TO ''claude''@''127.0.0.1'';')
-FROM information_schema.tables
-WHERE table_schema = '<pick55_db_name>' AND table_name <> 'er_users';
--- schema changes are rare; grant ALTER/CREATE/DROP only when a change is scheduled, then revoke.
-FLUSH PRIVILEGES;
+with `AUTO_INCREMENT=N` stripped. Re-run after every schema change.
+
+## Production (the droplet `143.198.236.171`)
+
+Design: a dedicated Unix account `claude` on the droplet (key-only SSH), and a MySQL account `claude` granted per table on everything except `er_users`. The MySQL password is generated **on the droplet** and stored only in `/home/claude/.my.cnf` (mode 600), so it never passes through chat and Claude never holds it locally. Claude runs queries as `ssh pick55 mysql pick -e "..."`; for anything needing a local client (Eloquent scripts), an SSH tunnel `-L 3307:127.0.0.1:3306` works with the same account.
+
+**State: not yet provisioned (2026-09-07).** The provisioning is one script, [`scripts/provision-claude-droplet.sh`](../scripts/provision-claude-droplet.sh), idempotent, run once as root. Owner-side steps (PowerShell, absolute paths):
+
+```powershell
+scp C:\wamp\www\pick55\scripts\provision-claude-droplet.sh root@143.198.236.171:/root/
+scp C:\Users\utexa\.ssh\claude_pick55_droplet.pub root@143.198.236.171:/root/claude.pub
+ssh root@143.198.236.171 "bash /root/provision-claude-droplet.sh /root/claude.pub pick"
 ```
 
-### Claude-side
+(If the production database is not named `pick`, replace the last argument. If the owner logs in as a non-root user, replace `root@` and prefix the bash command with `sudo`.)
 
-- `~/.ssh/config` entry `pick55` → droplet IP, user `claude`, key `~/.ssh/claude_pick55_droplet`. The key pair does not exist yet; the owner generates it, because Claude's harness blocks writes under `~/.ssh`:
-  `ssh-keygen -t ed25519 -N "" -C claude@pick55-droplet -f ~/.ssh/claude_pick55_droplet`
-- Tunnel: `ssh -N -L 3307:127.0.0.1:3306 pick55`, then connect to `127.0.0.1:3307` as `claude`.
-- The MySQL password lives only in a git-ignored local file **(file name decided at provisioning)**.
+Then add the SSH host entry Claude will use. Claude's harness blocks writes under the owner's `.ssh` directory, so the owner runs:
+
+```powershell
+Add-Content -Path C:\Users\utexa\.ssh\config -Value "`nHost pick55`n    HostName        143.198.236.171`n    User            claude`n    IdentityFile    C:\Users\utexa\.ssh\claude_pick55_droplet`n    IdentitiesOnly  yes"
+```
+
+Verification, from the workstation: `ssh pick55 "mysql pick -e 'SHOW TABLES'"` lists tables, and `ssh pick55 "mysql pick -e 'SELECT COUNT(*) FROM er_users'"` is denied.
+
+Schema changes (`ALTER`, `CREATE`, `DROP`) are deliberately **not** granted. When a `db/changes/` file is due, the owner applies it as root after the `LIVE_WRITE_GATE` go, or grants the DDL privilege for that one sitting and revokes it after.
 
 ## Schema changes — no migration framework
 
 Agreed 2026-09-07: this project does not need a migrations framework. Instead:
 
-- `db/schema.sql` — a `mysqldump --no-data` snapshot of production, committed, refreshed whenever the schema changes. **Does not exist yet; produced from the first dump.**
+- `db/schema.sql` — a `mysqldump --no-data` snapshot, committed, refreshed whenever the schema changes. First snapshot taken 2026-09-07 from the production dump.
 - `db/changes/YYYY-MM-DD-short-name.sql` — each schema change as a hand-applied file, committed with the code that needs it. Applying one to production goes through `LIVE_WRITE_GATE` like any other write.
 - A change file is applied locally first, then to production on go, then `schema.sql` is re-snapshotted.

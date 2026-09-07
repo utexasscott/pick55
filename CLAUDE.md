@@ -9,6 +9,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - **No live database write without a shown query and a go.** Reads against production are free. Any write or schema change to production is printed as exact SQL first and waits for an explicit go in a later turn. (`LIVE_WRITE_GATE`)
 - **`er_users` is off limits to Claude's DB account.** It holds names and emails. (`PII_TABLE_EXCLUDED`)
 - **Subagents are welcome** whenever the main session's full context is not needed for a task.
+- **Commands handed to the owner are PowerShell, with absolute paths, no placeholders** (owner, 2026-09-07). Claude's own shell work also goes through PowerShell; one command per call, multi-step work goes in a script file.
 - **Secrets never enter the repo.** `inc/_config.php` and anything with a credential stay git-ignored. The repo is public.
 
 ## Concepts
@@ -59,8 +60,9 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 ## Running locally (measured 2026-09-07)
 
 - PHP 7.4.33 CLI at `C:\php\php7.4.33\php.exe` (on PATH); Composer is `C:\php\php7.4.33\composer.bat` (run via `cmd //c` from bash). `vendor/` is installed.
-- Apache (wamp64) serves `c:\wamp\www`, so the app is at `http://127.0.0.1/pick55/`. It currently fails at bootstrap because `inc/_config.php` does not exist.
-- MySQL 5.7.44 (WampServer) on 3306, `root` with empty password. No pick55 database yet; it needs a dump from production. No `mysql` CLI on PATH; query through PHP.
+- Apache (wamp64) serves `c:\wamp\www`, so the app is at `http://127.0.0.1/pick55/`, working against the local database.
+- MySQL 5.7.44 (WampServer) on 3306, `root` with empty password, database `pick` (full production dump from 2026-09-07). Client binaries under `C:\wamp64\bin\mysql\mysql5.7.44\bin\`. Schema snapshot in `db/schema.sql`; details in [docs/database-access.md](docs/database-access.md).
+- Production: DigitalOcean droplet `143.198.236.171` (`pick55.com`); see [docs/deploy.md](docs/deploy.md).
 - Syntax check: `php -l path/to/file.php`. There is no test suite.
 
 ## Gotchas

@@ -19,7 +19,7 @@ Two generations of scraper exist in the repo and **neither works against today's
 - Inside a tbody, each game is a run of rows:
   - a header row with `td.game-time` containing `<span data-role="localtime" data-value="2026-09-10T00:20:00Z">` — **kickoff in UTC**. The app stores `date`/`time` in US Central (`date_default_timezone_set('America/Chicago')` in `inc/_inc.php`), so convert.
   - one `tr` per team (away first, then home) with `td.game-team` holding `<a href="/nfl/teams/patriots/" data-abbr="NE">` and the rotation number, followed by one `td.game-odds` per book with `<span class="data-value">+3.5</span>` and `<small class="data-odds">-110</small>`. In the totals tbody the value reads like `o47.5` / `u47.5`.
-- Team identity: the URL slug (`patriots`, `alabama-crimson-tide`, …) is the stable key. Whether `football_teams` has a slug column today is **(unconfirmed — check the dump)**; the 2019 code expected `vegas_insider_url`.
+- Team identity: the URL slug in the team link is the stable key. `football_teams.vegas_insider_url` exists (measured 2026-09-07 on the dump: 34 NFL + 90 NCAA rows, values like `alabama`, `louisiana-state`) and holds slugs that **still largely match** the new site (measured 2026-09-07 against the fetched pages): NFL 31 of 32 page slugs match a DB row (`commanders` is the exception, the DB row predates the rename); NCAA 61 of the 90 DB rows match a page slug, and the remaining page slugs are mostly schools the pool has never used. So matching on `vegas_insider_url` works; unmatched page slugs get surfaced to the admin rather than blocking.
 - A `--4.5` oddity was observed in a HardRock cell (double minus). Parse defensively: reduce to `[+-]?\d+(\.5)?`.
 
 ## Rebuild plan
@@ -28,7 +28,8 @@ Goal stated by the owner 2026-09-07: lines settle around **Monday 8 pm Central**
 
 1. **Scraper** (`scrape/get-raw.php` kept, `parse-raw.php` rewritten): parse `table.odds-table` into the same JSON shape `bulk-games.php` already consumes (`date`, `time`, `away_team`, `home_team`, `spread`, `over-under`) plus `away_abbr`/`home_abbr`, using the Consensus column. The half-point rule from the old parser stays: whole-number lines get `+0.5` so no pick can push.
 2. **Team matching**: add a `vi_slug` column to `football_teams` (a `db/changes/` file), populate it once by hand-matching, then match on slug. Unmatched slugs are listed on the admin page so the owner can map them.
-3. **Admin page**: `bulk-games.php` already lists scrape rows against the week; verify it against the new JSON, add checkboxes and a one-click create. Consider a cron on the droplet Monday 20:15 Central running `get-raw.php` and `parse-raw.php` for both leagues so the list is waiting.
-4. **Delete `scrape/odds/`** once step 1 lands.
+3. **Admin page**: `bulk-games.php` already lists scrape rows against the week; verify it against the new JSON, add checkboxes and a one-click create.
+4. **Cron on the droplet** (owner decision, 2026-09-07): the scrape runs automatically, but **only when a `football_weeks` row exists whose `picks_due_date` is less than 7 days in the future**. One CLI entry point (`scrape/run.php`) checks that condition, exits quietly if it fails, otherwise fetches and parses both leagues. Schedule: Monday 20:15 Central, plus a Tuesday morning retry.
+5. **Delete `scrape/odds/`** once step 1 lands.
 
 Open questions for the owner live in the session, not here; this doc records decisions once made.
