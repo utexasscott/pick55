@@ -324,11 +324,17 @@ class Auth
 	 */
 	public static function user()
 	{
+		static $cached_id = null;
+		static $cached_user = null;
 		$user_id = self::getAuthedUserId();
 		if (!$user_id) {
 			return null;
 		}
-		return User::find($user_id);
+		if ($cached_user === null || $cached_id !== $user_id) {
+			$cached_id = $user_id;
+			$cached_user = User::find($user_id);
+		}
+		return $cached_user;
 	}
 
 	/**

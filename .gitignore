@@ -21,3 +21,6 @@ Thumbs.db
 
 # Claude Code local overrides
 .claude/settings.local.json
+
+# Runtime file cache (see docs/results-cache.md)
+/cache/

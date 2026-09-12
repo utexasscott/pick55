@@ -30,6 +30,9 @@ class GameOptionCell
 			'my_user_id' => null,
 			'show_what_if' => false,
 			'what_if_option' => null,
+			// Optional preloaded data (avoids per-cell queries):
+			'players' => null, // user_id => User, must cover every user in user_ids
+			'picks' => null, // list of bet arrays/objects for this game (any option), keys user_id, option, multiplier, id
 		], $params);
 
 		$game = $params['game'];
@@ -37,8 +40,13 @@ class GameOptionCell
 		$picks = [];
 		$no_pick_player_ids = [];
 		$players = [];
-		foreach (User::whereIn('id', $params['user_ids'])->get() as $player) {
-			$players[$player->id] = $player;
+		if (is_array($params['players'])) {
+			$players = $params['players'];
+		}
+		else {
+			foreach (User::whereIn('id', $params['user_ids'])->get() as $player) {
+				$players[$player->id] = $player;
+			}
 		}
 
 		if ($params['option'] == '0') {
@@ -61,19 +69,35 @@ class GameOptionCell
 				$no_pick_player_ids[] = $row->id;
 			}
 		}
+		elseif (is_array($params['picks'])) {
+			$user_ids = array_flip(array_map('intval', $params['user_ids']));
+			foreach ($params['picks'] as $pick) {
+				$pick = (object) $pick;
+				if ($pick->option != $params['option'] || !isset($user_ids[(int) $pick->user_id])) {
+					continue;
+				}
+				$picks[] = $pick;
+			}
+			usort($picks, function ($a, $b) {
+				if ($a->multiplier != $b->multiplier) {
+					return $b->multiplier <=> $a->multiplier;
+				}
+				return $a->id <=> $b->id;
+			});
+		}
 		else {
 			$q = $game->bets()
 				->whereIn('user_id', $params['user_ids'])
 				->where('option', '=', $params['option']);
 			$picks = $q->orderBy('multiplier', 'DESC')
 				->get();
+		}
 
-			if ($params['my_user_id']) {
-				foreach ($picks as $pick) {
-					if ($pick->user_id == $params['my_user_id']) {
-						$my_pick_option = $pick->option;
-						break;
-					}
+		if ($params['my_user_id'] && $params['option'] != '0') {
+			foreach ($picks as $pick) {
+				if ($pick->user_id == $params['my_user_id']) {
+					$my_pick_option = $pick->option;
+					break;
 				}
 			}
 		}

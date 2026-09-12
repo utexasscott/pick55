@@ -6,6 +6,8 @@ use Pick55\Alert;
 use Pick55\App;
 use Pick55\Auth;
 use Pick55\Page;
+use Pick55\WeekResults;
+use Pick55\Models\Game;
 use Pick55\Models\Pool;
 use Pick55\Models\PoolsUsersLink;
 use Pick55\Models\UsersSeasonsLink;
@@ -130,46 +132,6 @@ if (sizeof($pools)) {
 	}
 }
 
-$stats_base = [
-	'user_id' => null,
-	'rank' => null,
-	'points' => 0,
-	'possible' => 0,
-	'sort_score' => 0,
-	'right' => 0,
-	'wrong' => 0,
-	'unknown' => 0,
-	'bit_mult' => 0,
-	'by_multiplier' => array_fill_keys(range(1, 10), 0),
-	'prediction_ranks' => [],
-	'prediction_ranks_pct' => [],
-	'prediction_gte_threshold' => 0,
-	'prediction_gte_threshold_pct' => 0,
-	'either_threshold' => 0,
-	'either_threshold_pct' => 0,
-];
-
-foreach (range(1, $week->num_winners) as $rank) {
-	$stats_base['prediction_ranks']['r' . $rank] = 0;
-	$stats_base['prediction_ranks_pct']['r' . $rank] = 0;
-}
-
-$my_picks_by_game_id = [];
-
-$stats_by_user_id = [];
-foreach ($focus_user_ids as $user_id) {
-	$stats_by_user_id['u' . $user_id] = $stats_base;
-	$stats_by_user_id['u' . $user_id]['user_id'] = $user_id;
-}
-
-$games = [];
-$q = $week->games()
-	->orderBy('date', 'ASC')
-	->orderBy('time', 'ASC');
-foreach ($q->cursor() as $game) {
-	$games[$game->id] = $game;
-}
-
 // Find "What Ifs" from query string
 $what_ifs_by_game_id = [];
 foreach ($_GET as $k => $v) {
@@ -178,64 +140,23 @@ foreach ($_GET as $k => $v) {
 	}
 }
 
-$bets_by_game_id = [];
-foreach ($games as $game) {
-	$bets_by_game_id[$game->id] = $game->bets()
-		->whereIn('user_id', $focus_user_ids)
-		->get()
-		->toArray(); // for performance
+// Scores, ranks and win probabilities: computed once per change to the
+// week's games/bets/settings and cached (see docs/results-cache.md).
+$results = WeekResults::get($week, $focus_user_ids, $what_ifs_by_game_id);
+$stats_by_user_id = $results['stats_by_user_id'];
+$bets_by_game_id = $results['bets_by_game_id'];
+$unknown_game_ids = $results['unknown_game_ids'];
+$num_unknowns = $results['num_unknowns'];
+$num_predictions = $results['num_predictions'];
+$show_auto_column = $results['show_auto_column'];
+$games = [];
+foreach (Game::hydrate($results['games']) as $game) {
+	$games[$game->id] = $game;
 }
 
-$num_unknowns = 0;
-
-$unknown_game_ids = [];
-foreach ($games as $game_id => $game) {
-	$correct_option = $game->correct_option;
-	if ($correct_option == '0') {
-		$num_unknowns++;
-		if (isset($what_ifs_by_game_id[$game_id])) {
-			$correct_option = $what_ifs_by_game_id[$game_id];
-		}
-		else {
-			$unknown_game_ids[] = $game->id;
-		}
-	}
-	$my_picks_by_game_id[$game->id] = 0;
-	$bets = $bets_by_game_id[$game->id];
-	foreach ($bets as $bet) {
-		if ($bet['user_id'] == $me->id) {
-			$my_picks_by_game_id[$game->id] = $bet['option'];
-		}
-		$s = &$stats_by_user_id['u' . $bet['user_id']];
-		$s['possible'] += $bet['multiplier'];
-		if ($bet['option'] == '3') {
-			$show_auto_column = true;
-			$s['points'] += $bet['multiplier'];
-			$s['sort_score'] += $bet['multiplier'] + pow(10, -(13-$bet['multiplier'])) + 0.01;
-			$s['right']++;
-			$s['by_multiplier'][$bet['multiplier']] = 3;
-			$s['bit_mult'] += pow(2, $bet['multiplier']);
-		}
-		elseif ($correct_option == '0') {
-			$s['unknown']++;
-		}
-		elseif ($correct_option == $bet['option']) {
-			$s['points'] += $bet['multiplier'];
-			$s['sort_score'] += $bet['multiplier'] + pow(10, -(13-$bet['multiplier'])) + 0.01;
-			$s['right']++;
-			$s['right_multipliers'][] = $bet['multiplier'];
-			$s['by_multiplier'][$bet['multiplier']] = 1;
-			$s['bit_mult'] += pow(2, $bet['multiplier']);
-		}
-		else {
-			$s['wrong']++;
-			$s['by_multiplier'][$bet['multiplier']] = -1;
-		}
-	}
-}
-
-foreach ($focus_user_ids as $user_id) {
-	$stats_by_user_id['u' . $user_id]['winnings'] = 0;
+// Winnings are edited on this page, so they stay outside the cache.
+foreach ($stats_by_user_id as $u_user_id => $stats) {
+	$stats_by_user_id[$u_user_id]['winnings'] = 0;
 }
 if ($week->weekWinners->count()) {
 	foreach ($week->weekWinners as $week_winner) {
@@ -245,134 +166,7 @@ if ($week->weekWinners->count()) {
 	}
 }
 
-sort_stats($stats_by_user_id);
-stats_apply_rank($stats_by_user_id);
-
-// Predictions
-$num_predictions = 0;
-if (sizeof($unknown_game_ids)) {
-	$num_predictions = pow(2, sizeof($unknown_game_ids));
-	$bit_prediction = $num_predictions - 1;
-	while ($bit_prediction >= 0) {
-		$prediction_stats = [];
-		foreach ($stats_by_user_id as $u_user_id => $stats) {
-			$prediction_stats[$u_user_id] = [
-				'points' => $stats['points'],
-				'sort_score' => $stats['sort_score'],
-				'right' => $stats['right'],
-				'user_id' => $user_id,
-				'bit_mult' => $stats['bit_mult'],
-			];
-		}
-
-		foreach ($unknown_game_ids as $index => $unknown_game_id) {
-			$mask = pow(2, $index);
-			$bit_result = $mask & $bit_prediction;
-			$option_result = $bit_result ? '1' : '2';
-
-			$bets = $bets_by_game_id[$unknown_game_id];
-			foreach ($bets as $bet) {
-				if ($option_result == $bet['option']) {
-					$prediction_stats['u' . $bet['user_id']]['points'] += $bet['multiplier'];
-					$prediction_stats['u' . $bet['user_id']]['sort_score'] += $bet['multiplier'] + pow(10, -(13-$bet['multiplier'])) + 0.01;
-					$prediction_stats['u' . $bet['user_id']]['right']++;
-					$prediction_stats['u' . $bet['user_id']]['bit_mult'] += pow(2, $bet['multiplier']);
-				}
-			}
-		}
-
-		sort_stats($prediction_stats);
-		stats_apply_rank($prediction_stats);
-
-		foreach ($prediction_stats as $u_user_id => $stats) {
-			if ($week->min_score_threshold) {
-				if ($stats['points'] >= $week->min_score_threshold) {
-					$stats_by_user_id[$u_user_id]['prediction_gte_threshold']++;
-					$stats_by_user_id[$u_user_id]['either_threshold']++;
-				}
-				elseif ($stats['rank'] <= $week->num_winners) {
-					$stats_by_user_id[$u_user_id]['either_threshold']++;
-				}
-			}
-			if ($stats['rank'] > $week->num_winners) {
-				continue;
-			}
-			$stats_by_user_id[$u_user_id]['prediction_ranks']['r' . $stats['rank']]++;
-		}
-
-		$bit_prediction--;
-	}
-}
-
-// Apply prediction %
-if ($num_predictions) {
-	foreach ($stats_by_user_id as $u_user_id => $stats) {
-		foreach (range(1, $week->num_winners) as $rank) {
-			$tmp_rank = $stats['prediction_ranks']['r' . $rank];
-			$stats_by_user_id[$u_user_id]['prediction_ranks_pct']['r' . $rank] = round($tmp_rank / $num_predictions * 100, 3);
-		}
-		if ($week->min_score_threshold) {
-			$tmp_num = $stats['prediction_gte_threshold'];
-			$stats_by_user_id[$u_user_id]['prediction_gte_threshold_pct'] = round($tmp_num / $num_predictions * 100, 3);
-			$tmp_num = $stats['either_threshold'];
-			$stats_by_user_id[$u_user_id]['either_threshold_pct'] = round($tmp_num / $num_predictions * 100, 3);
-		}
-	}
-}
-
 $show_probabilities = $num_predictions || sizeof($what_ifs_by_game_id);
-
-/**
- * Note: stats array MUST use strings as keys. string 'u<user_id>' is used.
- *
- * @param array $stats_input
- */
-function sort_stats(&$stats_input) {
-	// Sort by points, then sort by number correct
-	$sort_pts = [];
-	$sort_correct = [];
-	$sort_bit_mult = [];
-	foreach ($stats_input as $u_user_id => $stats) {
-		$sort_pts[$u_user_id] = $stats['points'];
-		$sort_correct[$u_user_id] = $stats['right'];
-		$sort_bit_mult[$u_user_id] = $stats['bit_mult'];
-	}
-	array_multisort(
-		$sort_pts,
-		SORT_DESC,
-		$sort_correct,
-		SORT_DESC,
-		$sort_bit_mult,
-		SORT_DESC,
-		$stats_input
-	);
-}
-
-/**
- * @param array $stats_input
- */
-function stats_apply_rank(&$stats_input) {
-	// Apply rank based stats
-	$rank = 0;
-	$prev_score = 0;
-	$tied = 0;
-	foreach ($stats_input as $user_id => $stats) {
-		if ($stats_input[$user_id]['sort_score'] != $prev_score) {
-			$rank++;
-			$rank += $tied;
-			$tied = 0;
-		}
-		else {
-			$tied ++;
-			if ($rank == 0) {
-				$rank = 1;
-				$tied = 0;
-			}
-		}
-		$prev_score = $stats_input[$user_id]['sort_score'];
-		$stats_input[$user_id]['rank'] = $rank;
-	}
-}
 
 ob_start();
 ?>
@@ -581,6 +375,8 @@ ob_start();
 								'my_user_id' => $me->id,
 								'show_what_if' => (bool) $num_unknowns,
 								'what_if_option' => isset($what_ifs_by_game_id[$game->id]) ? $what_ifs_by_game_id[$game->id] : null,
+								'players' => $users,
+								'picks' => $bets_by_game_id[$game->id],
 							]);
 							print GameOptionCell::build([
 								'game' => $game,
@@ -589,6 +385,8 @@ ob_start();
 								'my_user_id' => $me->id,
 								'show_what_if' => (bool) $num_unknowns,
 								'what_if_option' => isset($what_ifs_by_game_id[$game->id]) ? $what_ifs_by_game_id[$game->id] : null,
+								'players' => $users,
+								'picks' => $bets_by_game_id[$game->id],
 							]);
 							if ($show_auto_column) {
 								print GameOptionCell::build([
@@ -596,6 +394,8 @@ ob_start();
 									'option' => '3',
 									'user_ids' => $focus_user_ids,
 									'my_user_id' => $me->id,
+									'players' => $users,
+									'picks' => $bets_by_game_id[$game->id],
 								]);
 							}
 							?>

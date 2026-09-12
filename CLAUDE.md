@@ -28,6 +28,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | How does code reach the droplet? | [docs/deploy.md](docs/deploy.md) |
 | How does Claude reach the local or production DB? Schema changes? | [docs/database-access.md](docs/database-access.md) |
 | How do game lines get scraped from VegasInsider? | [docs/odds-scraper.md](docs/odds-scraper.md) |
+| Why is the week results page fast now, and how is its cache invalidated? | [docs/results-cache.md](docs/results-cache.md) |
 
 ## Layout
 
@@ -38,7 +39,8 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `admin/` — admin-only CRUD for seasons, weeks, games, teams, pools (guarded by `Auth::guardAdmin()`). `admin/weeks/week/bulk-games.php` creates games from scraper output.
 - `inc/_inc.php` — bootstrap: loads `inc/_config.php`, session/cookies, mysqli + Eloquent connection, PSR-ish autoloader for `inc/Pick55/`, `funcs.php`, then `global_post_handler.php`
 - `inc/_config.example.php` — copy to `inc/_config.php` (git-ignored). Keys: `base_url`, `sendgrid_api_key`, `dev_email_redir`, `db.*`
-- `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`
+- `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`, `Cache` (file cache), `WeekResults` (results page calculation + cache)
+- `cache/` — runtime file cache, git-ignored, created on first use (see [docs/results-cache.md](docs/results-cache.md))
 - `inc/Pick55/Models/` — Eloquent models. Tables are legacy-named: `er_users`, `football_seasons`, `football_weeks`, `football_games`, `football_teams`, `football_bets`, `football_pools`, `football_pool_users`, `er_users_friends`, etc. All models set `$timestamps = false` and `$guarded = []`
 - `inc/Pick55/Snippets/` — static `build(array $params)` HTML/email fragment renderers, each with a short `b(...)` shortcut
 - `scrape/` — CLI odds scrapers; see [docs/odds-scraper.md](docs/odds-scraper.md) (both generations currently broken against the live site)

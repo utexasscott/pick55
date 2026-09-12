@@ -221,18 +221,23 @@ class Week extends BaseModel
 	 */
 	public function getFirstGameAt()
 	{
+		// Memoized per request: nav bars ask this for every week on every page.
+		static $memo = [];
+		if (array_key_exists($this->id, $memo)) {
+			return $memo[$this->id];
+		}
 		$game = $this->games()
 			->orderBy('date', 'ASC')
 			->orderBy('time', 'ASC')
 			->first();
 		if (!$game) {
-			return null;
+			return $memo[$this->id] = null;
 		}
 		$ts = strtotime($game->date . ' ' . $game->time);
 		if (!$ts) {
-			return null;
+			return $memo[$this->id] = null;
 		}
-		return date("Y-m-d H:i:s", $ts);
+		return $memo[$this->id] = date("Y-m-d H:i:s", $ts);
 	}
 
 	/**

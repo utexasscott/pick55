@@ -175,12 +175,16 @@ class Season extends BaseModel
 	public function getPlayers($paid_only = false)
 	{
 		$users = [];
+		$user_ids = [];
 		$q = UsersSeasonsLink::where('football_season_id', '=', $this->id);
 		foreach ($q->cursor() as $link) {
 			if ($paid_only && !$link->paid_at) {
 				continue;
 			}
-			$users[] = $link->user;
+			$user_ids[] = $link->er_user_id;
+		}
+		if (sizeof($user_ids)) {
+			$users = User::whereIn('id', $user_ids)->get()->all();
 		}
 		$names = [];
 		foreach ($users as $user) {
