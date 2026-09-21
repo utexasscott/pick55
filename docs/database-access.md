@@ -50,10 +50,10 @@ Design: a dedicated Unix account `claude` on the droplet (key-only SSH), and a M
 ```powershell
 scp C:\wamp\www\pick55\scripts\provision-claude-droplet.sh root@143.198.236.171:/root/
 scp C:\Users\utexa\.ssh\claude_pick55_droplet.pub root@143.198.236.171:/root/claude.pub
-ssh root@143.198.236.171 "bash /root/provision-claude-droplet.sh /root/claude.pub pick"
+ssh -t root@143.198.236.171 "bash /root/provision-claude-droplet.sh /root/claude.pub pick"
 ```
 
-(If the production database is not named `pick`, replace the last argument. If the owner logs in as a non-root user, replace `root@` and prefix the bash command with `sudo`.)
+The production database is named `pick` (owner, 2026-09-21, from phpMyAdmin at `https://pick55.com/phpmyadmin/`). MySQL `root` on the droplet **requires a password** (measured 2026-09-21: a passwordless attempt returned `ERROR 1045`), so the script prompts for it; that is why the last command needs `ssh -t`. The password is held only in a mode-600 temp file on the droplet, deleted on exit. If the MySQL admin account is not `root`, pass its name as a third argument.
 
 Then add the SSH host entry Claude will use. Claude's harness blocks writes under the owner's `.ssh` directory, so the owner runs:
 
