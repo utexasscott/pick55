@@ -11,6 +11,8 @@ Two generations of scraper exist in the repo and **neither works against today's
 | 1 (2019-era) | `scrape/odds/*` | Puppeteer (`get-odds-page.js`) | `table.frodds-data-tbl` | Dead. `driver.php` requires a `../common/config.php` that never existed here and references `TroShared` models. Candidate for deletion. |
 | 2 (2021) | `scrape/get-raw.php`, `scrape/parse-raw.php` | Guzzle GET → `scrape/raw/vegas-insider/<league>/<stamp>.html` | `#frodds-imgmap-container` header + `table.frodds-data-tbl` rows → sibling `.json` | Fetch still works. Parser finds nothing: that markup is gone. `admin/weeks/week/bulk-games.php` reads the newest `.json` per league and offers its rows to the admin, so that page is the existing "pick from a list" surface. |
 
+Generation 2 **did run in production**: the droplet holds `scrape/raw/vegas-insider/{nfl,ncaa}/` files stamped daily at 02:00 through 2022-03-25 and logs in `/home/beanstalk/logs/scrape/` (last written 2022-03-25; an empty `parse.log` from 2023-04-05). So a `beanstalk` cron existed and has been dead since 2022–2023 (measured 2026-09-24).
+
 ## The page today — measured 2026-09-07
 
 - URLs unchanged: `https://www.vegasinsider.com/nfl/odds/las-vegas/` and `/college-football/odds/las-vegas/`. Both return 200 to a plain curl with a browser User-Agent. Server-rendered HTML, about 1 MB (NFL) and 3.6 MB (NCAA). **No headless browser needed.**

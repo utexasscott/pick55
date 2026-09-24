@@ -45,7 +45,7 @@ with `AUTO_INCREMENT=N` stripped. Re-run after every schema change.
 
 Design: a dedicated Unix account `claude` on the droplet (key-only SSH), and a MySQL account `claude` granted per table on everything except `er_users`. The MySQL password is generated **on the droplet** and stored only in `/home/claude/.my.cnf` (mode 600), so it never passes through chat and Claude never holds it locally. Claude runs queries as `ssh pick55 mysql pick -e "..."`; for anything needing a local client (Eloquent scripts), an SSH tunnel `-L 3307:127.0.0.1:3306` works with the same account.
 
-**State: not yet provisioned (2026-09-07).** The provisioning is one script, [`scripts/provision-claude-droplet.sh`](../scripts/provision-claude-droplet.sh), idempotent, run once as root. Owner-side steps (PowerShell, absolute paths):
+**State: provisioned and verified 2026-09-24.** `ssh pick55` lands as `claude`; `mysql pick -e 'SHOW TABLES'` lists 16 tables (all but `er_users`); `SELECT COUNT(*) FROM er_users` fails with `ERROR 1142`. The provisioning is one script, [`scripts/provision-claude-droplet.sh`](../scripts/provision-claude-droplet.sh), idempotent, run once as root. Owner-side steps (PowerShell, absolute paths):
 
 ```powershell
 scp C:\wamp\www\pick55\scripts\provision-claude-droplet.sh root@143.198.236.171:/root/
