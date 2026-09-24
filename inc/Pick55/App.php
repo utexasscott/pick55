@@ -8,6 +8,7 @@ use Pick55\Models\Season;
 class App
 {
 	private static $instance;
+	public $season;
 
 	/**
 	 * @return App

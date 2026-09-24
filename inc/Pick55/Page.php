@@ -15,6 +15,14 @@ class Page
 	const ASSET_VERSION = '2021-09-15';
 	const STR_UNEXPECTED_ERROR = "Sorry, we have encountered an unexpected error.";
 
+	public $app;
+	public $base_url;
+	public $title;
+	public $content;
+	public $scripts;
+	public $styles;
+	public $options;
+
 	/**
 	 */
 	public function __construct()
