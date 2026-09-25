@@ -86,18 +86,108 @@ class Week extends BaseModel
 	}
 
 	/**
-	 * @param int $num
+	 * The week's rules. Every week is expected to have one; callers must
+	 * still handle null for a week that has not been assigned a format yet.
+	 *
+	 * @return WeekFormat|null
 	 */
-	public function setNumPools($num = 0)
+	public function getFormat()
 	{
+		return $this->format;
+	}
+
+	/**
+	 * The format's name, or "Week N" when no format is assigned
+	 * (replaces football_weeks.description).
+	 *
+	 * @return string
+	 */
+	public function getName()
+	{
+		$format = $this->getFormat();
+		if ($format && strlen($format->name)) {
+			return $format->name;
+		}
+		return 'Week ' . $this->week_num;
+	}
+
+	/**
+	 * Replaces football_weeks.description_long.
+	 *
+	 * @return string
+	 */
+	public function getDescriptionLong()
+	{
+		$format = $this->getFormat();
+		return $format ? (string) $format->description_long : '';
+	}
+
+	/**
+	 * Number of pools the format calls for; 0 when the week has no pools
+	 * (replaces football_weeks.num_pools).
+	 *
+	 * @return int
+	 */
+	public function getNumPools()
+	{
+		$format = $this->getFormat();
+		return $format && $format->hasPools() ? (int) $format->num_pools : 0;
+	}
+
+	/**
+	 * Replaces football_weeks.num_winners. Pass the selected pool's pool_num
+	 * when showing one pool's results.
+	 *
+	 * @param int|null $pool_num
+	 * @return int
+	 */
+	public function getNumWinners($pool_num = null)
+	{
+		$format = $this->getFormat();
+		return $format ? $format->getNumWinners($pool_num) : 1;
+	}
+
+	/**
+	 * Replaces football_weeks.min_score_threshold.
+	 *
+	 * @param int|null $pool_num
+	 * @return int
+	 */
+	public function getMinScoreThreshold($pool_num = null)
+	{
+		$format = $this->getFormat();
+		return $format ? $format->getMinScoreThreshold($pool_num) : 0;
+	}
+
+	/**
+	 * Replaces football_weeks.is_playoffs.
+	 *
+	 * @return bool
+	 */
+	public function isPlayoffs()
+	{
+		$format = $this->getFormat();
+		return $format ? (bool) $format->is_playoffs : false;
+	}
+
+	/**
+	 * Creates or removes this week's football_pools rows so there are
+	 * exactly $num of them (default: what the format calls for), keeping
+	 * existing pools, their names and their players.
+	 *
+	 * @param int|null $num
+	 */
+	public function setNumPools($num = null)
+	{
+		if ($num === null) {
+			$num = $this->getNumPools();
+		}
 		$num = intval($num);
 		if (!$num) {
 			PoolsUsersLink::where('week_id', '=', $this->id)
 				->delete();
 			Pool::where('week_id', '=', $this->id)
 				->delete();
-			$this->num_pools = null;
-			$this->save();
 			return;
 		}
 		$pool_ids = [];
@@ -118,8 +208,6 @@ class Week extends BaseModel
 		Pool::where('week_id', '=', $this->id)
 			->whereNotIn('id', $pool_ids)
 			->delete();
-		$this->num_pools = $num;
-		$this->save();
 	}
 
 	/**
