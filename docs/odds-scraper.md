@@ -58,7 +58,7 @@ Measured 2026-09-25 against fresh fetches: NFL 15 games, NCAA 70 games (71 on th
 - NFL: 29 of 30 page slugs match; the miss is `commanders` (row 29 still carries `redskins`). The owner fixes it on the team edit page `admin/teams/team/index.php?id=29`.
 - NCAA: 57 of 140 page slugs match. Many misses are schools the pool never uses, but these DB rows carry a slug the site no longer uses and will stay unmatched until edited in the admin UI: `texas-austin`→`texas` (id 12), `louisiana-state`→`lsu` (2), `southern-california`→`usc` (13), `texas-christian`→`tcu` (17), `california-los-angeles`→`ucla` (19), `pennsylvania-state`→`penn-state` (73), `wisconsin-madison`→`wisconsin` (94), `mississippi`→`ole-miss` (83), `illinois-urbana`→`illinois` (71), `northwestern-university`→`northwestern` (68), `southern-methodist`→`smu` (121), `north-carolina-state`→`nc-state` (59), `miami`→`miami-fl` (62). Rows 111–126 (UAB, UCF, Texas State, UTSA, Tulane, Colorado State, South Florida, Western Kentucky, Central Arkansas, Nevada, New Mexico, Connecticut, Hawaii, San Jose State) have an empty slug. Unmatched page slugs are surfaced to the admin with the page's team name, never hidden.
 
-Slug edits are the owner's, through the admin UI, not a script (owner, 2026-09-25).
+**Applied to production by the owner 2026-09-25** (29 `UPDATE`s: the 14 renames above plus `brigham-young`→`byu`, and slugs for the 14 empty rows; `byu` and `san-jose-state` verified by the team page's `<title>`, which is generic for a slug the site does not know while the HTTP status is 200 either way). Verified afterwards over `ssh pick55`. Against the 2026-09-25 pages the match is now NFL 30 of 30 and NCAA 83 of 140; the 57 remaining NCAA page slugs are schools with no `football_teams` row at all. New teams are created on `admin/teams/create.php` with the page slug in the Vegas Insider URL field.
 
 ## The admin page — `admin/weeks/week/bulk-games.php`
 
@@ -69,7 +69,7 @@ Rewritten 2026-09-25; the 2021 bulk editor (add/remove/save-all rows, deleting u
 - **Matched-team indicator**: a green check with the `football_teams` name when the page slug equals `vegas_insider_url` for that league; a red triangle, the **page's team name** and a `slug: …` badge (linking to the teams list) when not. Unmatched games are listed, never hidden, and their lines are shown but cannot be ticked.
 - A checkbox per **spread** and per **total** (a game can yield both, as the hand-entered weeks do). A line already in the week for the same away/home/bet type shows an `in week` badge linking to the game instead of a checkbox. Header checkboxes tick every enabled box in that column.
 - **Create**: one button creates every ticked line in the selected week. Each row becomes a `football_games` row: `type`, `date`/`time` from the scrape (already Central), team ids, `bet_type`, `value`, `title` = "Away Name @ Home Name", options `Bengals (-3.5)` / `Steelers (+3.5)` (NFL uses the nickname, NCAA the school, the pool's hand-entry convention) or `OVER (50.5)` / `UNDER (50.5)`. Hidden `stamp_<league>` fields carry the scrape timestamps; if a newer scrape landed between render and submit the whole POST is refused with an alert and nothing is created. Skipped picks (unmatched, no line, already in week) are listed in a warning alert.
-- **Scrape now** button: POSTs `action=scrape`, which fetches and parses both leagues from the web server. On the droplet this writes to `scrape/raw/` as `www-data`; whether that directory is writable by `www-data` is **(unconfirmed — ask)**. A failure is shown as an alert and changes nothing.
+- **Scrape now** button: POSTs `action=scrape`, which fetches and parses both leagues from the web server, writing `scrape/raw/` as `www-data`. A failure is shown as an alert and changes nothing. The first production click (owner, 2026-09-25 16:45) failed because `www-data` could not write there; see "Permissions on the droplet". Since that fix the class throws at the write itself, naming the path and the process user, instead of failing later with "File does not exist".
 
 Verified 2026-09-25 through Apache at `http://127.0.0.1/pick55/` against the local `pick` database with a planted admin session: page renders without PHP notices (15 NFL + 70 NCAA rows, 69 checkboxes, unmatched slugs visible); a POST with a stale stamp was refused; a POST ticking Bengals@Steelers spread and Chargers@Bills total created games 2413/2414 in week 229 with the fields above, skipped the unmatched Commanders game with a warning, ignored a malformed key silently, and the reload showed both as `in week`. The test rows were deleted afterwards.
 
@@ -85,8 +85,18 @@ Goal stated by the owner 2026-09-07: lines settle around **Monday 8 pm Central**
 1. ~~Scraper~~ — done 2026-09-25 (this doc's "What exists").
 2. ~~`scrape/run.php`~~ — done 2026-09-25 (see "What exists"). Its PHP 8.0 run on the droplet is unverified until the first cron firing; the code uses nothing newer than 7.4 syntax and only `dom`, `curl`, `mysqli`, which 8.0 there has.
 3. ~~Admin page~~ — done 2026-09-25 (see "The admin page").
-4. **Cron on the droplet** — see "The cron" below. Line handed to the owner 2026-09-25; **installed: (unconfirmed — ask)**.
+4. ~~Cron on the droplet~~ — installed by the owner 2026-09-25 (crontab listed and `run.php --check` ran under `/usr/bin/php` 8.0: "Would run: week #229"). See "The cron".
 5. ~~Delete `scrape/odds/`~~ — done 2026-09-25.
+
+## Permissions on the droplet
+
+Two processes write `scrape/raw/`: the cron as `beanstalk` and the Scrape-now button as `www-data`. Measured 2026-09-25 as `claude`: the tree carried over by the cutover is `beanstalk:beanstalk`, directories mode 775, and `www-data` is in no group but its own (`id www-data` → `groups=33(www-data)`), so the web server could not write and Scrape-now failed. The fix keeps `beanstalk` as owner, gives the directories group `www-data` with the setgid bit so anything either process creates inherits that group, and group write so both can add files (owner, PowerShell):
+
+```powershell
+ssh root@143.198.236.171 "chown -R beanstalk:www-data /home/beanstalk/pick55/scrape/raw; find /home/beanstalk/pick55/scrape/raw -type d -exec chmod 2775 {} +; ls -la /home/beanstalk/pick55/scrape/raw/vegas-insider"
+```
+
+Files stay readable by everyone (644), so `newest()` reads either process's output. `VegasInsider::getLeagueDir` chmods a directory it creates to 775 and throws if the directory is not writable; `saveRaw` and `parseFile` throw if a write fails. **Applied: (unconfirmed — ask)**.
 
 ## The cron
 

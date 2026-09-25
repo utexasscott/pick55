@@ -70,9 +70,31 @@ class VegasInsider
 	{
 		$dir = self::getRawDir() . DIRECTORY_SEPARATOR . strtolower(self::league($league));
 		if (!is_dir($dir)) {
-			mkdir($dir, 0775, true);
+			if (!@mkdir($dir, 0775, true)) {
+				throw new Exception("Could not create " . $dir . " (running as " . self::whoami() . ").");
+			}
+			// mkdir's mode is masked by umask; the cron user and the web server both write here.
+			@chmod($dir, 0775);
+		}
+		if (!is_writable($dir)) {
+			throw new Exception($dir . " is not writable by " . self::whoami() . "; see docs/odds-scraper.md, 'Permissions on the droplet'.");
 		}
 		return $dir;
+	}
+
+	/**
+	 * @return string the current process user, for error messages
+	 */
+	private static function whoami()
+	{
+		if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+			$pw = posix_getpwuid(posix_geteuid());
+			if ($pw && isset($pw['name'])) {
+				return $pw['name'];
+			}
+		}
+		$user = getenv('USERNAME');
+		return $user ? $user : 'unknown user';
 	}
 
 	// -----
@@ -119,7 +141,9 @@ class VegasInsider
 	public static function saveRaw($league, $html)
 	{
 		$path = self::getLeagueDir($league) . DIRECTORY_SEPARATOR . date(self::STAMP_FORMAT) . '.html';
-		file_put_contents($path, $html);
+		if (@file_put_contents($path, $html) === false) {
+			throw new Exception("Could not write " . $path . " as " . self::whoami() . ".");
+		}
 		return $path;
 	}
 
@@ -241,7 +265,10 @@ class VegasInsider
 			throw new Exception("File does not exist: " . $html_path);
 		}
 		$games = self::parse(file_get_contents($html_path));
-		file_put_contents(self::jsonPathFor($html_path), json_encode($games, JSON_PRETTY_PRINT));
+		$json_path = self::jsonPathFor($html_path);
+		if (@file_put_contents($json_path, json_encode($games, JSON_PRETTY_PRINT)) === false) {
+			throw new Exception("Could not write " . $json_path . " as " . self::whoami() . ".");
+		}
 		return $games;
 	}
 
