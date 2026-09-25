@@ -238,6 +238,210 @@ a.link-muted:hover {
 	content: "\f0dd";
 	color: #3082fb;
 }
+/* All-time stats pages (stats/) */
+.stats-bar .navbar-brand {
+	font-weight: 300;
+}
+.text-fame { color: #b8860b; }
+.text-shame { color: #c0392b; }
+.text-money { color: #27ae60; }
+.stat-tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: .75rem;
+}
+.stat-tiles.hidden {
+	display: none;
+}
+.stat-tile {
+	background: #fff;
+	border: 1px solid rgba(0, 0, 0, 0.25);
+	border-radius: .375rem;
+	padding: .75rem .75rem .6rem;
+	text-align: center;
+}
+.stat-tile .stat-value {
+	font-size: 28px;
+	font-weight: 700;
+	line-height: 1.1;
+}
+.stat-tile .stat-value small {
+	font-size: 14px;
+	font-weight: 400;
+}
+.stat-tile .stat-value a {
+	color: inherit;
+}
+.stat-tile .stat-label {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .06em;
+	color: #777;
+	margin-top: .25rem;
+}
+.stat-tile .stat-sub {
+	font-size: 12px;
+	color: #444;
+	margin-top: .15rem;
+	line-height: 1.3;
+}
+.stat-tile.tile-fame .stat-value { color: #b8860b; }
+.stat-tile.tile-shame .stat-value { color: #c0392b; }
+.stat-tile.tile-money .stat-value { color: #27ae60; }
+.card-wall .card-header {
+	padding: 1.25rem 1rem;
+}
+.card-header.header-fame {
+	background: linear-gradient(135deg, #fff1a8, #d4af37 55%, #b8860b);
+	color: #3a2a00;
+	border-bottom: 1px solid #b8860b;
+}
+.card-header.header-shame {
+	background: linear-gradient(135deg, #5a5a5a, #2b2b2b 55%, #151515);
+	color: #f3d6d6;
+	border-bottom: 1px solid #000;
+}
+.wall-title {
+	font-size: 30px;
+	font-weight: 300;
+	line-height: 1.1;
+}
+.wall-subtitle {
+	font-size: 14px;
+	opacity: .85;
+	margin-top: .25rem;
+}
+.plaques {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+	gap: 1rem;
+}
+.plaque {
+	position: relative;
+	border-radius: .5rem;
+	padding: 1.25rem 1rem 1rem;
+	text-align: center;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.plaque-fame {
+	background: linear-gradient(160deg, #fffbe6, #f3dea6);
+	border: 2px solid #d4af37;
+	color: #3a2a00;
+}
+.plaque-shame {
+	background: linear-gradient(160deg, #444, #1e1e1e);
+	border: 2px solid #8b0000;
+	color: #eee;
+}
+.plaque-me {
+	outline: 3px solid #3082fb;
+	outline-offset: 2px;
+}
+.plaque .plaque-ribbon {
+	position: absolute;
+	top: .5rem;
+	right: .5rem;
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	padding: 2px 7px;
+	border-radius: 10px;
+}
+.plaque-fame .plaque-ribbon {
+	background: #b8860b;
+	color: #fff;
+}
+.plaque-shame .plaque-ribbon {
+	background: #8b0000;
+	color: #fff;
+}
+.plaque .plaque-score {
+	font-size: 60px;
+	font-weight: 700;
+	line-height: 1;
+	margin-top: .5rem;
+}
+.plaque-fame .plaque-score {
+	color: #b8860b;
+	text-shadow: 0 1px 0 #fff;
+}
+.plaque-shame .plaque-score {
+	color: #e74c3c;
+}
+.plaque .plaque-points-label {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .1em;
+	opacity: .7;
+}
+.plaque .plaque-name {
+	font-size: 18px;
+	font-weight: 700;
+	margin-top: .5rem;
+}
+.plaque .plaque-meta {
+	font-size: 12px;
+	opacity: .85;
+	line-height: 1.3;
+}
+.plaque .plaque-format {
+	font-style: italic;
+}
+.plaque .plaque-record {
+	margin-top: .5rem;
+	font-size: 13px;
+	font-weight: 700;
+}
+.plaque-shame a {
+	color: #9ec5ff;
+}
+.table-records td,
+.table-records th {
+	vertical-align: middle;
+}
+.table-records .record-label {
+	width: 28%;
+	font-weight: 700;
+}
+.table-records .record-value {
+	width: 14%;
+	font-size: 22px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+.table-ranked tbody tr.over-limit {
+	display: none;
+}
+.table-ranked tbody tr.row-odd:not(.bg-me) > td {
+	box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.05);
+}
+.table-ranked .rank-cell {
+	width: 40px;
+	font-weight: 700;
+	color: #777;
+}
+.table-ranked .rank-cell.rank-1,
+.table-ranked .rank-cell.rank-2,
+.table-ranked .rank-cell.rank-3 {
+	color: rgba(0, 0, 0, 0.7);
+}
+.table-ranked .rank-cell.rank-1 { background-color: gold; }
+.table-ranked .rank-cell.rank-2 { background-color: silver; }
+.table-ranked .rank-cell.rank-3 { background-color: #CD7F32; color: #fff; }
+.stats-toolbar .btn-group .btn.active {
+	background-color: #212529;
+	color: #fff;
+}
+.ck-game:hover {
+	cursor: pointer;
+}
+.ck-game-off:hover {
+	background-color: #ffffd8;
+}
+.ck-game-on {
+	background-color: #afceaf;
+}
 .ck-game:hover {
 	cursor: pointer;
 }

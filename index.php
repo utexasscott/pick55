@@ -29,6 +29,7 @@ ob_start();
 					<?php else: ?>
 						<a href="season/index.php" class="btn btn-outline-light btn-lg px-4 me-md-2">My Season</a>
 						<a href="season/standings.php" class="btn btn-outline-light btn-lg px-4 me-md-2">Standings</a>
+						<a href="stats/index.php" class="btn btn-outline-light btn-lg px-4 me-md-2">Stats</a>
 					<?php endif; ?>
 				</div>
 			</div>

@@ -12,7 +12,7 @@ use Pick55\Snippets\GameOptionClass;
 
 class Page
 {
-	const ASSET_VERSION = '2026-09-25';
+	const ASSET_VERSION = '2026-09-25b';
 	const STR_UNEXPECTED_ERROR = "Sorry, we have encountered an unexpected error.";
 
 	public $app;
@@ -50,6 +50,10 @@ class Page
 					'type' => null,
 					'obj' => null,
 				],
+			],
+			'stats_bar' => [
+				'show' => false,
+				'active' => '',
 			],
 		];
 	}
@@ -138,6 +142,7 @@ class Page
 		<?=$this->renderHeader()?>
 		<?=$this->renderAdminBar()?>
 		<?=$this->renderSeasonBar()?>
+		<?=$this->renderStatsBar()?>
 		<?=$this->renderAlerts(true)?>
 
 		<div><?=$this->content?></div>
@@ -195,6 +200,7 @@ class Page
 								<?php endif; ?>
 								<a class="btn btn-sm btn-outline-light" href="<?=$this->link('season/index.php')?>">My Season</a>
 								<a class="btn btn-sm btn-outline-light" href="<?=$this->link('season/standings.php')?>">Standings</a>
+								<a class="btn btn-sm btn-outline-light" href="<?=$this->link('stats/index.php')?>">Stats</a>
 								<?php if (Auth::isAdmin()): ?>
 									<a class="btn btn-sm btn-secondary" href="<?=$this->link('admin/index.php')?>">Admin</a>
 								<?php endif; ?>
@@ -351,6 +357,46 @@ class Page
 							</ul>
 						</div>
 					<?php endif; ?>
+				</div>
+			</div>
+		</nav>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * The stats/ pages' tab bar. options['stats_bar']['active'] names the
+	 * current page by its key below.
+	 *
+	 * @return string
+	 */
+	public function renderStatsBar()
+	{
+		if (!$this->options['stats_bar']['show']) {
+			return '';
+		}
+		$tabs = [
+			'overview' => ['stats/index.php', 'fa-book-open', 'Record Book'],
+			'fame' => ['stats/fame.php', 'fa-trophy', 'Wall of Fame'],
+			'shame' => ['stats/shame.php', 'fa-egg', 'Wall of Shame'],
+			'leaderboard' => ['stats/leaderboard.php', 'fa-list-ol', 'Leaderboards'],
+			'seasons' => ['stats/seasons.php', 'fa-calendar-alt', 'Best Seasons'],
+		];
+		$active = $this->options['stats_bar']['active'];
+		ob_start();
+		?>
+		<nav class="navbar navbar-dark bg-dark2 stats-bar">
+			<div class="container">
+				<div class="d-flex w-100 justify-content-sm-between align-items-center flex-wrap justify-content-center gap-1">
+					<a class="navbar-brand" href="<?=$this->link('stats/index.php')?>">All-Time Stats</a>
+					<div class="d-flex flex-wrap justify-content-center gap-1">
+						<?php foreach ($tabs as $key => $tab): ?>
+							<a
+								class="btn btn-sm <?=$key == $active ? 'btn-light' : 'btn-outline-light'?>"
+								href="<?=$this->link($tab[0])?>"
+								><i class="fas <?=$tab[1]?> me-1"></i><?=$tab[2]?></a>
+						<?php endforeach; ?>
+					</div>
 				</div>
 			</div>
 		</nav>
