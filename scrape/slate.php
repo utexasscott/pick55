@@ -7,11 +7,16 @@
  * which games are eligible under the pool's rules) and turns a chosen slate into the exact
  * football_games INSERTs that admin/weeks/week/bulk-games.php would have written.
  *
- *   php scrape/slate.php board [--rankings=FILE.json] [--teams=FILE.tsv] [--allow-early]
+ *   php scrape/slate.php board [--rankings=FILE.json] [--fpi=FILE.json] [--teams=FILE.tsv] [--allow-early]
  *   php scrape/slate.php sql --week=ID [--teams=FILE.tsv] --pick=NCAA:texas@tennessee:spread ...
  *   php scrape/slate.php sql --week=ID [--teams=FILE.tsv] --slate=FILE      (one pick per line)
  *
  * --rankings  JSON object {"<vegas slug>": <AP rank>, ...}; unranked slugs are simply absent.
+ *             AP rank is the NCAA eligibility gate ("at least one team ranked").
+ * --fpi       JSON object {"NFL": {"<slug>": <ESPN FPI rank>, ...}, "NCAA": {...}}. FPI rank is how
+ *             "big game" is measured (the owner's choice, 2026-09-25): the lower the two teams'
+ *             FPI ranks add up to, the bigger the game. Records are not used; they say little early
+ *             in the season.
  * --teams     TSV with header id/type/team/nickname/vegas_insider_url, dumped from production
  *             (see the skill). Without it the local database's football_teams is used.
  * --allow-early  treat Thursday/Friday games as eligible (Thanksgiving week is detected anyway).
@@ -126,6 +131,31 @@ function load_rankings(array $opts)
 }
 
 /**
+ * @return array league => slug => FPI rank
+ */
+function load_fpi(array $opts)
+{
+	if (empty($opts['fpi'])) {
+		return [];
+	}
+	$json = json_decode((string) file_get_contents($opts['fpi']), true);
+	if (!is_array($json)) {
+		fwrite(STDERR, "--fpi is not a JSON object of league => slug => rank\n");
+		exit(2);
+	}
+	$fpi = [];
+	foreach ($json as $league => $ranks) {
+		if (!is_array($ranks)) {
+			continue;
+		}
+		foreach ($ranks as $slug => $rank) {
+			$fpi[strtoupper($league)][strtolower($slug)] = (int) $rank;
+		}
+	}
+	return $fpi;
+}
+
+/**
  * Thanksgiving Thursday (4th Thursday of November) or the Friday after it.
  */
 function is_thanksgiving_window($date)
@@ -194,8 +224,9 @@ function slot_of($league, $date, $time)
  *
  * @return array|null ['ts' => int, 'json' => path, 'games' => [key => game]]
  */
-function load_board($league, array $teams, array $ranks, $allow_early)
+function load_board($league, array $teams, array $ranks, array $fpi, $allow_early)
 {
+	$league_fpi = isset($fpi[$league]) ? $fpi[$league] : [];
 	$scrape = VegasInsider::newest($league);
 	if (!$scrape) {
 		return null;
@@ -209,6 +240,8 @@ function load_board($league, array $teams, array $ranks, $allow_early)
 		$g['matched'] = $g['away'] && $g['home'];
 		$g['away_rank'] = isset($ranks[$g['away_team']]) ? $ranks[$g['away_team']] : null;
 		$g['home_rank'] = isset($ranks[$g['home_team']]) ? $ranks[$g['home_team']] : null;
+		$g['away_fpi'] = isset($league_fpi[$g['away_team']]) ? $league_fpi[$g['away_team']] : null;
+		$g['home_fpi'] = isset($league_fpi[$g['home_team']]) ? $league_fpi[$g['home_team']] : null;
 		$g['slot'] = slot_of($league, $g['date'], $g['time']);
 		$g['kickoff_ts'] = strtotime($g['date'] . ' ' . $g['time']);
 		$g['early'] = in_array($g['slot'], ['THU', 'FRI']);
@@ -241,25 +274,40 @@ function load_board($league, array $teams, array $ranks, $allow_early)
 
 /**
  * A rough "how big is this game" number, higher is bigger. It orders the candidate list;
- * the skill's judgment (records, storylines, slot needs) decides the final slate.
+ * the skill's judgment (rivalries, storylines, slot needs) decides the final slate.
+ *
+ * NFL: 100 minus the two FPI ranks minus the spread, plus 6 for SNF/MNF. A team missing from
+ * the FPI file counts as rank 33 (or 40 in NCAA). Without an FPI file the NFL score is spread
+ * closeness alone, which is a poor measure; the skill always supplies the file.
+ *
+ * NCAA: AP ranks drive it (that is the pool's stated test), FPI breaks ties: both ranked beats
+ * one ranked, then lower rank sum, then closer spread, then lower FPI sum.
  */
 function big_game_score($league, array $g)
 {
 	$spread = $g['spread'] === null ? 20 : abs($g['spread']);
+	$fpi_missing = $league == Game::LEAGUE_NCAA ? 40 : 33;
+	$fa = $g['away_fpi'] !== null ? $g['away_fpi'] : $fpi_missing;
+	$fh = $g['home_fpi'] !== null ? $g['home_fpi'] : $fpi_missing;
+	$has_fpi = $g['away_fpi'] !== null || $g['home_fpi'] !== null;
 	if ($league == Game::LEAGUE_NCAA) {
 		$a = $g['away_rank'];
 		$h = $g['home_rank'];
+		$fpi_term = $has_fpi ? ($fa + $fh) / 10 : 0;
 		if ($a !== null && $h !== null) {
-			return round(100 - ($a + $h) - $spread / 2, 1);
+			return round(100 - ($a + $h) - $spread / 2 - $fpi_term, 1);
 		}
 		if ($a !== null || $h !== null) {
 			$r = $a !== null ? $a : $h;
-			return round(50 - $r - $spread, 1);
+			return round(50 - $r - $spread - $fpi_term, 1);
 		}
-		return round(-$spread, 1);
+		return round(-$spread - $fpi_term, 1);
 	}
 	$prime = in_array($g['slot'], ['SNF', 'MNF']) ? 6 : 0;
-	return round(20 - $spread + $prime, 1);
+	if (!$has_fpi) {
+		return round(20 - $spread + $prime, 1);
+	}
+	return round(100 - ($fa + $fh) - $spread + $prime, 1);
 }
 
 function fmt_line($value, $is_spread)
@@ -273,11 +321,15 @@ function fmt_line($value, $is_spread)
 	return number_format($value, 1);
 }
 
+/**
+ * "#4 Ole Miss Rebels (F13)": AP rank in front, FPI rank in parentheses.
+ */
 function fmt_team(array $g, $side)
 {
 	$rank = $g[$side . '_rank'];
+	$fpi = $g[$side . '_fpi'];
 	$name = $g[$side] ? trim($g[$side]['team'] . ' ' . $g[$side]['nickname']) : $g[$side . '_name'] . ' [NO TEAM ROW]';
-	return ($rank !== null ? '#' . $rank . ' ' : '') . $name;
+	return ($rank !== null ? '#' . $rank . ' ' : '') . $name . ($fpi !== null ? ' (F' . $fpi . ')' : '');
 }
 
 function print_table(array $rows, array $headers)
@@ -307,14 +359,18 @@ function print_table(array $rows, array $headers)
 
 $teams = load_teams($opts);
 $ranks = load_rankings($opts);
+$fpi = load_fpi($opts);
 $allow_early = !empty($opts['allow-early']);
 
 if ($command == 'board') {
 	if (!$ranks) {
 		print "NOTE: no --rankings given, so every NCAA game reads as 'nobody ranked'.\n\n";
 	}
+	if (!$fpi) {
+		print "NOTE: no --fpi given, so the NFL order is spread closeness only and NCAA has no tiebreak.\n\n";
+	}
 	foreach (Game::getLeagues() as $league) {
-		$board = load_board($league, $teams, $ranks, $allow_early);
+		$board = load_board($league, $teams, $ranks, $fpi, $allow_early);
 		print "=== " . $league . " ===\n";
 		if (!$board) {
 			print "No scrape on disk. Run: php scrape/run.php --force\n\n";
@@ -405,7 +461,7 @@ if (!$picks) {
 
 $boards = [];
 foreach (Game::getLeagues() as $league) {
-	$boards[$league] = load_board($league, $teams, $ranks, $allow_early);
+	$boards[$league] = load_board($league, $teams, $ranks, $fpi, $allow_early);
 }
 
 $week = Week::find($week_id);

@@ -9,7 +9,7 @@ description: Choose a Pick55 week's 14 lines (NFL 4 spreads + 3 totals, NCAA 4 s
 
 ## Rules the slate must satisfy
 
-The pool's rules, from the owner (2026-09-25) and measured against seasons 17–18:
+The pool's rules, from the owner (2026-09-25) and measured against seasons 17–18. Inputs each week: the newest scrape, the AP Top 25, and ESPN FPI for both leagues.
 
 **Shape.** 14 rows per week: NFL 7 (4 spreads, 3 over-unders) and NCAA 7 (4 spreads, 3 over-unders). Every hand-entered week since 2025 has exactly this shape (one 2025 week went 3+4 on NCAA; treat 4+3 as the rule).
 
@@ -28,7 +28,7 @@ The pool's rules, from the owner (2026-09-25) and measured against seasons 17–
 
 **The double.** When there are not 7 good NCAA games, put **both** the spread and the over-under on the biggest game of the week (or on two of the top games) rather than reaching for a ranked-vs-unranked blowout. This is common: it happened in 5 of the first 5 weeks of 2025 and in all 3 weeks of 2026 so far, always on the No. 1 or No. 2 game of the slate. NFL doubles are rare (once in 2025, week 12) and only when the slate is thin.
 
-**NFL "biggest".** No rankings, so use: both teams with winning records, the closeness of the spread, division rivalries, marquee franchises, and the national windows (SNF and MNF are big by definition). Pull the current standings before deciding. Closeness outranks brand: a 1-1 vs 1-1 game at +3.5 is a better seventh line than a 2-0 marquee favorite laying 10 (2026 week 3: the owner took Patriots @ Jaguars +3.5 as a spread and left Chiefs @ Dolphins -10.5 out entirely).
+**"Biggest" is measured by ESPN's FPI**, not by record (owner, 2026-09-25: "record is only a decent measuring stick late in the season"). A game is big when both teams' FPI ranks are low, and it gets bigger as the spread gets closer. The board's NFL score is exactly that (100 minus the two FPI ranks minus the spread, plus 6 for SNF/MNF), so read the NFL candidate list top-down and only override it for a reason you can name: a division rivalry, a first-place matchup, a quarterback storyline. A great team laying 10 to a bad one is not a big game, whatever the brand: 2026 week 3, Chiefs (FPI 4) @ Dolphins (FPI 32) at -10.5 scored 13th of 15 and the owner left it out, while Patriots (10) @ Jaguars (8) at +3.5 scored 3rd and got a spread. For NCAA the AP poll stays the eligibility test and the main ordering (that is how the owner talks about the games); FPI is a tiebreak between similar games.
 
 ## Procedure
 
@@ -58,15 +58,15 @@ Everything below is PowerShell with absolute paths (CLAUDE.md). Nothing writes t
 
 4. **Get the AP Top 25.** Fetch `https://www.ncaa.com/rankings/football/fbs/associated-press` (WebFetch works on it; apnews.com is blocked) and write a JSON object of VegasInsider slug → rank to `C:\Users\utexa\AppData\Local\Temp\pick55-rankings.json`, for example `{"texas": 1, "georgia": 2, ...}`. Slugs are the `away_team`/`home_team` values in the scrape JSON: lowercase, spaces to hyphens, punctuation dropped. Ones that are not obvious: Southern Cal → `usc`, Miami (FL) → `miami-fl`, Texas A&M → `texas-am`, Ole Miss → `ole-miss`, Mississippi State → `mississippi-state`, NC State → `nc-state`, Pitt → `pittsburgh`, Hawaii → `hawaii`. Confirm every slug you write appears in the scrape (grep the JSON) so a typo does not silently unrank a team. The `football_teams.ranking` column is a 2013-era leftover; ignore it.
 
-5. **Get NFL context.** Fetch `https://www.espn.com/nfl/standings` for records. Note anything else that makes a game big this week (a rivalry, a first-place matchup, a returning quarterback) if you know it; do not invent storylines.
+5. **Get ESPN FPI for both leagues.** Fetch `https://www.espn.com/nfl/fpi` (all 32 teams) and `https://www.espn.com/college-football/fpi` (the top 40 is enough) and write `C:\Users\utexa\AppData\Local\Temp\pick55-fpi.json` as `{"NFL": {"49ers": 1, "bills": 2, ...}, "NCAA": {"ohio-state": 1, "texas": 2, ...}}`, FPI **rank** per VegasInsider slug. NFL slugs are the nickname in lowercase (`49ers`, `commanders`, `chiefs`); NCAA slugs as in step 4. Both pages fetched fine on 2026-09-25 (NFL updated daily, college weekly). Note anything else that makes a game big this week (a rivalry, a first-place matchup, a returning quarterback) if you know it; do not invent storylines. Do not use won-lost records; they say little before November.
 
 6. **Print the board.**
 
    ```powershell
-   php C:\wamp\www\pick55\scrape\slate.php board --rankings=C:\Users\utexa\AppData\Local\Temp\pick55-rankings.json --teams=C:\Users\utexa\AppData\Local\Temp\pick55-teams.tsv
+   php C:\wamp\www\pick55\scrape\slate.php board --rankings=C:\Users\utexa\AppData\Local\Temp\pick55-rankings.json --fpi=C:\Users\utexa\AppData\Local\Temp\pick55-fpi.json --teams=C:\Users\utexa\AppData\Local\Temp\pick55-teams.tsv
    ```
 
-   Per league it lists every scraped game with kickoff (Central), slot, key (`away@home` slugs), AP ranks, spread (against the away team, negative = away favored), total, and why a game is ineligible (before Saturday, no team row, started, nobody ranked, spread ≥ 14). Then the eligible games sorted by a rough big-game score (NCAA: both ranked beats one ranked, lower rank sum and closer spread score higher; NFL: closer spread plus a bonus for SNF/MNF) and the count of eligible games per slot. The score orders the list; it does not pick.
+   Per league it lists every scraped game with kickoff (Central), slot, key (`away@home` slugs), AP rank (`#4`) and FPI rank (`(F13)`) per team, spread (against the away team, negative = away favored), total, and why a game is ineligible (before Saturday, no team row, started, nobody ranked, spread ≥ 14). Then the eligible games sorted by the big-game score (NFL: FPI-rank sum and spread closeness, SNF/MNF bonus; NCAA: both AP-ranked beats one, then lower AP sum, closer spread, FPI as tiebreak) and the count of eligible games per slot. The score orders the list; it does not pick.
 
    A team shown as `[NO TEAM ROW]` in a game you want has no `football_teams` row for that slug. Create the team first (`admin/teams/create.php` by the owner, or an `INSERT` under the gate), re-dump the teams file, and rerun the board.
 
@@ -75,7 +75,7 @@ Everything below is PowerShell with absolute paths (CLAUDE.md). Nothing writes t
 8. **Generate and check the SQL.**
 
    ```powershell
-   php C:\wamp\www\pick55\scrape\slate.php sql --week=230 --teams=C:\Users\utexa\AppData\Local\Temp\pick55-teams.tsv --rankings=C:\Users\utexa\AppData\Local\Temp\pick55-rankings.json --slate=C:\Users\utexa\AppData\Local\Temp\pick55-slate.txt | Out-File -Encoding utf8 C:\Users\utexa\AppData\Local\Temp\pick55-slate.sql
+   php C:\wamp\www\pick55\scrape\slate.php sql --week=230 --teams=C:\Users\utexa\AppData\Local\Temp\pick55-teams.tsv --rankings=C:\Users\utexa\AppData\Local\Temp\pick55-rankings.json --fpi=C:\Users\utexa\AppData\Local\Temp\pick55-fpi.json --slate=C:\Users\utexa\AppData\Local\Temp\pick55-slate.txt | Out-File -Encoding utf8 C:\Users\utexa\AppData\Local\Temp\pick55-slate.sql
    ```
 
    Warnings on stderr (exit 3) name any rule the slate breaks: wrong 4+3 shape, an uncovered NFL or NCAA slot, a Monday game left out, a pre-Saturday game, an NCAA game with nobody ranked or a 14+ spread, or a double (that one is informational). Fix the slate and rerun until the only warning is a deliberate double. The SQL is one `INSERT` with the exact fields `bulk-games.php` writes (`title` "Away Name @ Home Name", options `Bengals (-3.5)` / `Steelers (+3.5)` for NFL, `Texas (-4.5)` / `Tennessee (+4.5)` for NCAA, `OVER (54.5)` / `UNDER (54.5)` for totals, `correct_option` '0') plus a verification `SELECT`.
@@ -97,4 +97,4 @@ Keep it to one table per league, in kickoff order, with an asterisk on the game 
 ## Calibration record
 
 - 2026 week 3 (`football_weeks.id` 230, owner's hand pick, 2026-09-22): NCAA spreads Texas @ Tennessee, Ole Miss @ Florida, Iowa @ Michigan, Oregon @ USC; totals Texas @ Tennessee, Texas A&M @ LSU, Missouri @ Mississippi State. NFL spreads Bengals @ Steelers, Patriots @ Jaguars, Vikings @ Buccaneers, Rams @ Broncos (SNF); totals Chargers @ Bills, Ravens @ Cowboys, Eagles @ Bears (MNF).
-- Claude's dry run of this skill against the same week (2026-09-25, this skill's first use): NCAA identical, all 7 lines. NFL 6 of 7 games matched; Claude had Ravens @ Cowboys as a spread and Patriots @ Jaguars out in favor of a Chiefs @ Dolphins total. Lesson recorded in the rules above: a 1-1 vs 1-1 game with a close line beats a 2-0 vs 0-2 game with a 10-point line, even when the favorite is the bigger brand.
+- Claude's dry run against the same week (2026-09-25, this skill's first use, with the owner's picks already visible): NCAA identical, all 7 lines. NFL, first pass using won-lost records: 6 of 7 games, with Chiefs @ Dolphins in as a total instead of Patriots @ Jaguars. The owner rejected that ("the Dolphins are the worst team in the league; JAX and the Patriots are both top ten") and named ESPN FPI as the measure. Second pass with FPI: the board's top 5 plus Vikings @ Buccaneers and Bengals @ Steelers were the owner's 7 games exactly (Bengals @ Steelers chosen over the equal-scoring Texans @ Colts as a division game). Only difference left: Claude put the spread on Ravens @ Cowboys (the biggest game by FPI, -3.5) and the total on Bengals @ Steelers; the owner did the reverse, taking the week's highest total (53.5) on Ravens @ Cowboys.
