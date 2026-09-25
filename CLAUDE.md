@@ -34,22 +34,23 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | Why is the week results page fast now, and how is its cache invalidated? | [docs/results-cache.md](docs/results-cache.md) |
 | Where do a week's rules and payouts live, and how are formats created? | [docs/week-formats.md](docs/week-formats.md) |
 | What do the all-time stats pages (walls of fame/shame, leaderboards, best seasons) count, and how are they cached? | [docs/all-time-stats.md](docs/all-time-stats.md) |
+| How do live scores get to the results page, and how does a game's result get set automatically? | [docs/live-scores.md](docs/live-scores.md) |
 
 ## Layout
 
 - `index.php`, `rules.php` — public pages
 - `auth/` — login, signup (email verify), forgot/reset password, logout
 - `account/` — user profile
-- `season/` — player views: my season (`index.php`: week grid, points charts, and a Seasons table over every season the player is in, computed by `inc/Pick55/SeasonHistory.php` in four queries), standings, `week/pick.php` (make picks), `week/results.php`, `week/save-picks.php` (AJAX JSON endpoint), `week/raw.php` (JSON dump of the pick week's games, added in SVN r147–149)
+- `season/` — player views: my season (`index.php`: week grid, points charts, and a Seasons table over every season the player is in, computed by `inc/Pick55/SeasonHistory.php` in four queries), standings, `week/pick.php` (make picks), `week/results.php`, `week/save-picks.php` (AJAX JSON endpoint), `week/raw.php` (JSON dump of the pick week's games, added in SVN r147–149), `week/live.php` (JSON of a week's live scores for the results page's refresh, see [docs/live-scores.md](docs/live-scores.md))
 - `stats/` — all-time stats for every logged-in player: `index.php` (record book), `fame.php`, `shame.php`, `leaderboard.php`, `seasons.php`, over `inc/Pick55/AllTimeStats.php` (cached like the results page); `_shared.php` is their common setup (see [docs/all-time-stats.md](docs/all-time-stats.md))
 - `admin/` — admin-only CRUD for seasons, weeks, games, teams, pools, week formats (guarded by `Auth::guardAdmin()`). `admin/weeks/week/bulk-games.php` creates games from scraper output; `admin/formats/` creates and edits week formats (see [docs/week-formats.md](docs/week-formats.md)).
 - `inc/_inc.php` — bootstrap: loads `inc/_config.php`, session/cookies, mysqli + Eloquent connection, PSR-ish autoloader for `inc/Pick55/`, `funcs.php`, then `global_post_handler.php`
 - `inc/_config.example.php` — copy to `inc/_config.php` (git-ignored). Keys: `base_url`, `sendgrid_api_key`, `dev_email_redir`, `db.*`
-- `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`, `Cache` (file cache), `WeekResults` (results page calculation + cache), `AllTimeStats` (stats pages calculation + cache), `SeasonHistory`
+- `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`, `Cache` (file cache), `WeekResults` (results page calculation + cache), `AllTimeStats` (stats pages calculation + cache), `SeasonHistory`, `VegasInsider` (odds scraper), `Espn` (scoreboard client and game matching for live scores)
 - `cache/` — runtime file cache, git-ignored, created on first use (see [docs/results-cache.md](docs/results-cache.md))
-- `inc/Pick55/Models/` — Eloquent models. Tables are legacy-named: `er_users`, `football_seasons`, `football_weeks`, `football_games`, `football_teams`, `football_bets`, `football_pools`, `football_pool_users`, `er_users_friends`, etc. All models set `$timestamps = false` and `$guarded = []`
+- `inc/Pick55/Models/` — Eloquent models. Tables are legacy-named: `er_users`, `football_seasons`, `football_weeks`, `football_games`, `football_teams`, `football_bets`, `football_pools`, `football_pool_users`, `er_users_friends`, etc. All models set `$timestamps = false` and `$guarded = []`. `GameScore` (`football_game_scores`, live/final ESPN scores per game, `Game::score()`) and `EspnTeam` (`football_espn_teams`, learned ESPN team ids) were added 2026-09-25 for live scores
 - `inc/Pick55/Snippets/` — static `build(array $params)` HTML/email fragment renderers, each with a short `b(...)` shortcut
-- `scrape/` — VegasInsider odds scraper CLIs (`get-raw.php`, `parse-raw.php`, `run.php` for cron, `slate.php` for the `/pick-games` skill) over `inc/Pick55/VegasInsider.php`; output under git-ignored `scrape/raw/`; see [docs/odds-scraper.md](docs/odds-scraper.md)
+- `scrape/` — VegasInsider odds scraper CLIs (`get-raw.php`, `parse-raw.php`, `run.php` for cron, `slate.php` for the `/pick-games` skill) over `inc/Pick55/VegasInsider.php`; output under git-ignored `scrape/raw/`; see [docs/odds-scraper.md](docs/odds-scraper.md). `live-scores.php` is the 10-minute live-scores cron over `inc/Pick55/Espn.php`; see [docs/live-scores.md](docs/live-scores.md)
 - `.claude/skills/` — project skills, committed; `pick-games` chooses a week's lines from the scrape
 - `static/` — vendored CSS/JS (Bootstrap, Font Awesome, jQuery, Chart.js, stupidtable), `global.css`, `global.js`
 - `scripts/` — droplet-side shell scripts (provisioning, git cutover, deploy); see [docs/deploy.md](docs/deploy.md)
