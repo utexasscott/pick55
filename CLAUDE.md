@@ -45,6 +45,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `inc/Pick55/Snippets/` — static `build(array $params)` HTML/email fragment renderers, each with a short `b(...)` shortcut
 - `scrape/` — CLI odds scrapers; see [docs/odds-scraper.md](docs/odds-scraper.md) (both generations currently broken against the live site)
 - `static/` — vendored CSS/JS (Bootstrap, Font Awesome, jQuery, Chart.js, stupidtable), `global.css`, `global.js`
+- `scripts/` — droplet-side shell scripts (provisioning, git cutover, deploy); see [docs/deploy.md](docs/deploy.md)
 - `docs/` — project documentation (see above)
 
 ## Conventions

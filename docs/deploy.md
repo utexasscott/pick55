@@ -27,18 +27,28 @@ Measured 2026-09-24 over SSH as `claude`, except where marked.
 - Claude commits to the local `main` **without asking**, in small commits, as work lands.
 - Claude **never pushes to `origin`** on its own. A push is the deploy trigger, and the owner says when.
 - Claude **suggests a push** at the end of any turn that leaves unpushed commits, so it is not forgotten.
-- Until the droplet-side pull mechanism exists (below), a push only updates GitHub; the owner still has to pull on the droplet.
+- A push updates GitHub only. The droplet pulls when the owner runs the deploy command below, so "deploy" is two owner actions: push, then deploy.
 
-## Target mechanism (not yet built)
+## Mechanism
 
-The simplest replacement for the Beanstalk hook, in order of preference:
+The web root is a git clone of `origin/main` at `/home/beanstalk/pick55`, owned by `beanstalk`. Two scripts, both in `scripts/`:
 
-1. **Pull on the droplet, triggered by a GitHub Actions workflow** that SSHes in on push to `main` and runs `git pull --ff-only` plus `composer install --no-dev`. Needs a deploy key on the droplet and an SSH private key in the repo's GitHub secrets.
-2. **Manual**: the owner runs the same two commands over SSH. Works today with zero setup once the droplet has a git checkout.
+| Script | Runs as | When | Does |
+|---|---|---|---|
+| [`cutover-to-git.sh`](../scripts/cutover-to-git.sh) | root, once | replacing the Beanstalk export | parks the export at `pick55.svn-149`, clones, carries over `inc/_config.php` (mode 640, group `www-data`) and `scrape/raw/`, `composer install --no-dev`, creates `cache/` owned by `www-data`, curls three URLs. Header holds the rollback line. |
+| [`deploy.sh`](../scripts/deploy.sh) | `beanstalk` (root re-execs as it) | after every push | `git fetch` + `merge --ff-only origin/main`; `composer install --no-dev` only if `composer.lock` changed; prints the commits deployed. Refuses non-fast-forward. |
 
-Either way the droplet needs: a git clone at `/home/beanstalk/pick55` (replacing the Beanstalk export), `inc/_config.php` preserved in place (it is git-ignored, so a clone does not touch it), and `vendor/` built by composer on the box. The pull runs as `beanstalk` (the tree's owner), never as `claude`.
+Deploy command the owner runs after a push:
 
-Cutover steps, once r147–r149 are reconciled into git: `mv /home/beanstalk/pick55 /home/beanstalk/pick55.svn-149`, `git clone https://github.com/utexasscott/pick55.git /home/beanstalk/pick55`, copy `inc/_config.php` and `scrape/raw/` back from the old tree, `composer install --no-dev`, load the site. Rollback is renaming the directories back.
+```powershell
+ssh root@143.198.236.171 "bash /home/beanstalk/pick55/scripts/deploy.sh"
+```
+
+`claude` cannot run either script (no write access to the tree, no sudo). Automating the pull from a GitHub Actions workflow is possible later (a deploy key on the droplet plus an SSH key in the repo secrets) and is not built.
+
+**State:** cutover script written 2026-09-25, **not yet run** — see the state line below once it is.
+
+The droplet's CLI `php` is 8.0 while Apache serves through 7.4, so `composer install` resolves under 8.0 and the site runs under 7.4. The lock file already satisfies both (it was regenerated on the droplet in SVN r147–149).
 
 ## What must never be in a deploy
 
