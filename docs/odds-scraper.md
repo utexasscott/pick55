@@ -9,6 +9,7 @@
 | Scraper class | `inc/Pick55/VegasInsider.php` | Everything: URLs, fetch (Guzzle, browser User-Agent), raw-file storage, parser, newest-scrape lookup, log line. Autoloaded like any `Pick55\` class, so the admin page and the CLIs share it. |
 | Fetch CLI | `scrape/get-raw.php <nfl\|ncaa>` | Fetches one league page and stores it as `scrape/raw/vegas-insider/<league>/<Y-m-d-H-i-s>.html`. Paths are anchored on `__DIR__` (the 2021 version used the working directory, so a cron run from `$HOME` wrote there). |
 | Parse CLI | `scrape/parse-raw.php [--all] [file.html]` | Parses stored pages into sibling `.json`. No arguments: every `.html` without a `.json`. `--all`: re-parse everything. A file argument: that file, always re-parsed. |
+| Cron CLI | `scrape/run.php [--check\|--force]` | The scheduled entry point. Queries `football_weeks` for a row with `picks_due_date` after now and less than 7 days ahead; with none it exits 0 silently. With one it fetches and parses both leagues and prints one timestamped log line per league (`week #229 (season 18 week 4, picks due …): NFL 15 games -> …json`). A failed league is logged as `FAILED` and sets exit status 1; the other league still runs. `--check` prints the decision and fetches nothing; `--force` skips the week check. Verified 2026-09-25 locally under PHP 7.4 (fetch, parse, log lines). |
 | Consumer | `admin/weeks/week/bulk-games.php` | Reads the newest `.json` per league and offers the games to the admin (rebuild pending, see plan). |
 | Dead generation | `scrape/odds/*` (2019, Puppeteer + `table.frodds-data-tbl`) | Deletion pending, see plan. |
 
@@ -68,7 +69,7 @@ Slug edits are the owner's, through the admin UI, not a script (owner, 2026-09-2
 Goal stated by the owner 2026-09-07: lines settle around **Monday 8 pm Central**; the admin should open a page on the site, see the week's scraped games, tick the ones to include, and have them created with spreads and totals filled in.
 
 1. ~~Scraper~~ — done 2026-09-25 (this doc's "What exists").
-2. **`scrape/run.php`**: one CLI entry point for cron. Exits quietly unless a `football_weeks` row has `picks_due_date` within the next 7 days; otherwise fetches and parses both leagues and writes a log line. Runs under PHP 8.0 on the droplet and 7.4 locally.
+2. ~~`scrape/run.php`~~ — done 2026-09-25 (see "What exists"). Its PHP 8.0 run on the droplet is unverified until the first cron firing; the code uses nothing newer than 7.4 syntax and only `dom`, `curl`, `mysqli`, which 8.0 there has.
 3. **Admin page**: `bulk-games.php` lists the newest scrape per league with checkboxes, a matched-team indicator, and a one-click create of the ticked rows into the selected week.
 4. **Cron on the droplet** (owner decision, 2026-09-07): Monday 20:15 Central plus a Tuesday 08:00 retry. Droplet facts that bind it (measured 2026-09-24, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup (measured 2026-09-25) — so the scraper and everything `inc/_inc.php` loads must run under 8.0 as well as under Apache's 7.4, and output goes to `/home/beanstalk/logs/scrape/` which already exists.
 5. **Delete `scrape/odds/`.**
