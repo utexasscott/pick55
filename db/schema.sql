@@ -1,4 +1,4 @@
-﻿
+
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -216,6 +216,7 @@ CREATE TABLE `football_week_format_payouts` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `football_week_format_id` int(10) unsigned NOT NULL,
   `place_type` enum('overall','pool','team') COLLATE utf8_unicode_ci NOT NULL,
+  `pool_num` int(10) unsigned DEFAULT NULL,
   `min_place` int(10) unsigned DEFAULT NULL,
   `max_place` int(10) unsigned DEFAULT NULL,
   `min_points` int(10) unsigned DEFAULT NULL,
@@ -236,6 +237,8 @@ CREATE TABLE `football_week_formats` (
   `description_long` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `is_teams` tinyint(1) NOT NULL DEFAULT '0',
   `num_pools` int(10) unsigned DEFAULT NULL,
+  `is_playoffs` tinyint(1) NOT NULL DEFAULT '0',
+  `advance` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `num_players` (`num_players`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
@@ -261,17 +264,6 @@ CREATE TABLE `football_weeks` (
   `football_season_id` int(10) unsigned NOT NULL,
   `week_num` int(10) unsigned NOT NULL,
   `football_week_format_id` int(10) unsigned DEFAULT NULL,
-  `description` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `description_long` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `is_teams` tinyint(1) NOT NULL DEFAULT '0',
-  `num_pools` int(10) unsigned DEFAULT NULL,
-  `players_per_pool` int(10) unsigned DEFAULT NULL,
-  `pool_winner` decimal(7,2) unsigned DEFAULT NULL,
-  `weekly_bonus` decimal(7,2) unsigned DEFAULT NULL,
-  `num_winners` int(10) unsigned NOT NULL DEFAULT '1',
-  `min_score_threshold` int(11) NOT NULL DEFAULT '0',
-  `is_playoffs` tinyint(1) NOT NULL DEFAULT '0',
-  `advance` int(10) unsigned DEFAULT NULL,
   `picks_due_date` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `season_id-week_num` (`football_season_id`,`week_num`) USING BTREE,
