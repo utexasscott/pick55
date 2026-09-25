@@ -54,9 +54,9 @@ Before this change `football_week_formats` held six owner-made rows for 2018 and
 
 The seed, [`db/changes/2026-09-25-week-formats-seed.sql`](../db/changes/2026-09-25-week-formats-seed.sql), was generated from a hand-written table of every week (scratch script `gen-format-seed.php`, not in the repo; the SQL file is the record). Rules used:
 
-- one format per distinct (season, structure); weeks with identical rules in one season share it, and the 2026 weeks 4–10, whose descriptions are copies of the 2025 plan, point at the 2025 (60-player) formats until the owner replaces them;
+- one format per distinct (season, structure); weeks with identical rules in one season share it;
 - `num_players` = the season's `football_users_seasons` count;
-- payouts were read from the paid amounts (`football_week_winners`) for finished weeks and from the description for unplayed ones. The 2026 Finals came from the tables on `rules.php`;
+- payouts were read from the paid amounts (`football_week_winners`) for finished weeks and from the description for unplayed ones. 2026 week 1 was paid $140/105/80/65/55/45 although its description said $130/90/75/65/55/45; the format records what was paid. 2026 weeks 3–10 follow the descriptions on production as read on 2026-09-25 (week 3 "5 Pools of 10", weeks 4–10 all "Top 8"); the 2026 Finals came from the tables on `rules.php`;
 - 2010–2013 weeks with no description became "Winner Takes All"; playoff week 11 became "Semifinals" (`is_playoffs`, `advance` from the description, no payouts) and week 12 "Finals" (two pool-specific tables where the season had a consolation pool). In the 2025 Finals pool 2 was the Finals pool and pool 1 the Consolation pool; the format follows the data;
 - the 2018 formats 1–6 were kept; row 12 (the "41 points" split) got its pot, $190.
 
@@ -71,7 +71,7 @@ Cross-check: the computed `total_payout` equals the sum actually paid for every 
 *Concept key: `LIVE_WRITE_GATE`.* Three files, in order, all under `db/changes/`. Claude's MySQL account has no DDL, so steps 1 and 3 are run by the owner as root on the droplet; step 2 is plain DML that Claude runs after a go, or the owner runs the same way.
 
 1. `2026-09-25-week-formats-schema.sql` — adds the columns (safe before deploying the code; the old code ignores them).
-2. `2026-09-25-week-formats-seed.sql` — deletes any format with id ≥ 7, inserts the 90 formats and 331 rows, assigns every week. **Before running it against production, diff production's `football_weeks` and `football_week_winners` against the 2026-09-07 dump the seed was derived from**: any week edited or paid since then (2026 weeks 3–10 in particular) must be re-checked and the file regenerated if a description changed. The file is idempotent (delete then insert).
+2. `2026-09-25-week-formats-seed.sql` — deletes any format with id ≥ 7, inserts the 90 formats and 331 rows, assigns every week. It was checked against production on 2026-09-25: a CRC over every pre-2026 week's legacy columns and over every pre-2026 winner row matched the local dump exactly, formats 1–6 and their 14 rows are identical, and the 2026 weeks were re-read from production (the owner had changed weeks 4–10 since the dump). **If any week or winner row changes on production before the go, re-check.** The file is idempotent (delete then insert).
 3. Deploy the code (push), then `2026-09-25-week-formats-drop-legacy.sql`. The code never reads the dropped columns, so this can wait; until it runs the columns are simply dead.
 
 Owner-side, PowerShell:
