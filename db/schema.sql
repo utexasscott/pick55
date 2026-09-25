@@ -62,6 +62,40 @@ CREATE TABLE `football_bets` (
   KEY `multiplier` (`multiplier`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `football_espn_teams`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `football_espn_teams` (
+  `football_team_id` int(10) unsigned NOT NULL,
+  `espn_team_id` varchar(20) COLLATE utf8_unicode_ci NOT NULL,
+  `espn_display_name` varchar(100) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `matched_at` datetime DEFAULT NULL,
+  `matched_by` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`football_team_id`),
+  KEY `espn_team_id` (`espn_team_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `football_game_scores`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `football_game_scores` (
+  `football_game_id` int(10) unsigned NOT NULL,
+  `espn_event_id` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `away_score` smallint(5) unsigned DEFAULT NULL,
+  `home_score` smallint(5) unsigned DEFAULT NULL,
+  `state` enum('pre','in','post') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'pre',
+  `completed` tinyint(1) NOT NULL DEFAULT '0',
+  `period` tinyint(3) unsigned DEFAULT NULL,
+  `clock` varchar(10) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `detail` varchar(60) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `fetched_at` datetime NOT NULL,
+  `changed_at` datetime DEFAULT NULL,
+  `result_set_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`football_game_id`),
+  KEY `state` (`state`,`completed`),
+  KEY `espn_event_id` (`espn_event_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_games`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;

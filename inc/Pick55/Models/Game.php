@@ -36,6 +36,14 @@ class Game extends BaseModel
 	}
 
 	/**
+	 * The live/final ESPN score row, if scrape/live-scores.php has written one.
+	 */
+	public function score()
+	{
+		return $this->hasOne(GameScore::class, 'football_game_id');
+	}
+
+	/**
 	 * @return array of string
 	 */
 	public static function getLeagues()
