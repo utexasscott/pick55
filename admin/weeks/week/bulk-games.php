@@ -187,13 +187,34 @@ if (is_post()) {
 			}
 		}
 		elseif (post('action') == 'scrape') {
-			foreach (array_keys(VegasInsider::getUrls()) as $league) {
-				try {
-					$result = VegasInsider::scrape($league);
-					Alert::success("Scraped " . $league . ": " . sizeof($result['games']) . " games.");
+			if (class_exists('DOMDocument')) {
+				foreach (array_keys(VegasInsider::getUrls()) as $league) {
+					try {
+						$result = VegasInsider::scrape($league);
+						Alert::success("Scraped " . $league . ": " . sizeof($result['games']) . " games.");
+					}
+					catch (Throwable $e) {
+						// Throwable, not Exception: a missing extension is an Error and would otherwise be a blank 500.
+						Alert::error("Scraping " . $league . " failed: " . h($e->getMessage()));
+					}
 				}
-				catch (Exception $e) {
-					Alert::error("Scraping " . $league . " failed: " . h($e->getMessage()));
+			}
+			else {
+				// This PHP build cannot parse (the droplet's Apache 7.4 has no dom extension), so run
+				// the cron's command in a CLI process instead. See docs/odds-scraper.md.
+				try {
+					$result = VegasInsider::scrapeViaCli();
+					$output = '<pre class="mb-0 small">' . h(implode("\n", $result['lines'])) . '</pre>';
+					if ($result['ok']) {
+						Alert::success("Scraped via the CLI:" . $output);
+					}
+					else {
+						Alert::error("The scraper CLI exited with status " . (int) $result['code'] . ":" . $output
+							. '<div class="small text-muted">' . h($result['command']) . '</div>');
+					}
+				}
+				catch (Throwable $e) {
+					Alert::error("Scraping failed: " . h($e->getMessage()));
 				}
 			}
 		}

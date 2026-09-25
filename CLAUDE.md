@@ -67,7 +67,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 ## Running locally (measured 2026-09-07)
 
 - PHP 7.4.33 CLI at `C:\php\php7.4.33\php.exe` (on PATH); Composer is `C:\php\php7.4.33\composer.bat` (run via `cmd //c` from bash). `vendor/` is installed. Its `php.ini` points `curl.cainfo`/`openssl.cafile` at `C:\php\php7.4.33\extras\ssl\cacert.pem` (added 2026-09-25) so CLI HTTPS works.
-- Apache (wamp64) serves `c:\wamp\www`, so the app is at `http://127.0.0.1/pick55/`, working against the local database.
+- Apache (wamp64) serves `c:\wamp\www`, so the app is at `http://127.0.0.1/pick55/`, working against the local database. Its PHP 7.4.33 reads `C:\wamp64\bin\apache\apache2.4.65\bin\php.ini`, which also points `curl.cainfo`/`openssl.cafile` at the bundle above (set 2026-09-25; takes effect after a WampServer restart, which Claude cannot do).
 - MySQL 5.7.44 (WampServer) on 3306, `root` with empty password, database `pick` (full production dump from 2026-09-07). Client binaries under `C:\wamp64\bin\mysql\mysql5.7.44\bin\`. Schema snapshot in `db/schema.sql`; details in [docs/database-access.md](docs/database-access.md).
 - Production: DigitalOcean droplet `143.198.236.171` (`pick55.com`); see [docs/deploy.md](docs/deploy.md).
 - Syntax check: `php -l path/to/file.php`. There is no test suite.

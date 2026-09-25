@@ -166,6 +166,33 @@ class VegasInsider
 		];
 	}
 
+	/**
+	 * Runs scrape/run.php --force in a separate CLI PHP process and returns what it printed.
+	 * The web server uses this when its own PHP build cannot parse (the droplet's Apache 7.4
+	 * has no dom extension); the CLI is the same binary and command the cron uses.
+	 *
+	 * @return array ['ok' => bool, 'code' => int, 'lines' => array, 'command' => string]
+	 * @throws Exception
+	 */
+	public static function scrapeViaCli()
+	{
+		if (!function_exists('exec')) {
+			throw new Exception("exec() is disabled in this PHP, so the scraper CLI cannot be run from the web.");
+		}
+		$php = config('scrape.php_cli', '/usr/bin/php');
+		$script = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'scrape' . DIRECTORY_SEPARATOR . 'run.php';
+		$command = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --force 2>&1';
+		$lines = [];
+		$code = 1;
+		exec($command, $lines, $code);
+		return [
+			'ok' => $code === 0,
+			'code' => $code,
+			'lines' => $lines,
+			'command' => $command,
+		];
+	}
+
 	// -----
 	// Files
 	// -----
@@ -293,6 +320,10 @@ class VegasInsider
 	 */
 	public static function parse($html)
 	{
+		if (!class_exists('DOMDocument')) {
+			throw new Exception("PHP's dom extension is not loaded in this " . PHP_SAPI . " build of PHP " . PHP_VERSION
+				. " (on the droplet: install php7.4-xml and restart Apache; see docs/odds-scraper.md).");
+		}
 		$dom = new DOMDocument();
 		$prev = libxml_use_internal_errors(true);
 		$dom->loadHTML($html);

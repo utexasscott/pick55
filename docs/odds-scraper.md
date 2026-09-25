@@ -96,7 +96,16 @@ Two processes write `scrape/raw/`: the cron as `beanstalk` and the Scrape-now bu
 ssh root@143.198.236.171 "chown -R beanstalk:www-data /home/beanstalk/pick55/scrape/raw; find /home/beanstalk/pick55/scrape/raw -type d -exec chmod 2775 {} +; ls -la /home/beanstalk/pick55/scrape/raw/vegas-insider"
 ```
 
-Files stay readable by everyone (644), so `newest()` reads either process's output. `VegasInsider::getLeagueDir` chmods a directory it creates to 775 and throws if the directory is not writable; `saveRaw` and `parseFile` throw if a write fails. **Applied: (unconfirmed — ask)**.
+Files stay readable by everyone (644), so `newest()` reads either process's output. `VegasInsider::getLeagueDir` chmods a directory it creates to 775 and throws if the directory is not writable; `saveRaw` and `parseFile` throw if a write fails. Applied by the owner 2026-09-25 (measured afterwards: `nfl/` is `drwxrwsr-x beanstalk www-data` and Scrape-now wrote `2026-09-25-16-52-46.html` as `www-data`).
+
+## Apache's PHP 7.4 cannot parse: the CLI fallback
+
+Measured 2026-09-25 on the droplet: `php7.4-xml` is not installed, so neither the 7.4 CLI nor Apache's 7.4 has `dom` (`/etc/php/7.4/apache2/conf.d/` has no xml or dom ini; `php7.4 -m` lists curl, libxml, mbstring, posix). The 7.4 packages came from the ondrej PPA's `bionic` channel, and `apt-cache policy php7.4-xml` finds no candidate, so the package cannot be added. `php8.0-xml` is installed, which is why `/usr/bin/php` (8.0) parses fine. Under Apache, `new DOMDocument()` was a fatal error, so the first Scrape-now after the permission fix returned HTTP 500 with the NFL page saved and no JSON.
+
+Handling, since 2026-09-25:
+
+- `VegasInsider::parse` throws a plain exception when `DOMDocument` is missing, and the page catches `Throwable`, so a missing extension is an alert, never a 500.
+- The Scrape-now action checks `class_exists('DOMDocument')`. With it (local Apache, any future droplet PHP) it scrapes in-process. Without it (the droplet today) it calls `VegasInsider::scrapeViaCli()`, which `exec`s `<php_cli> scrape/run.php --force 2>&1`, the cron's own command, and shows the CLI's log lines in the alert. `php_cli` is `config('scrape.php_cli')`, default `/usr/bin/php`; `exec` is not in the droplet's `disable_functions` (only `pcntl_*` are). The CLI runs as `www-data`, so the permission fix above is what lets it write `scrape/raw/`.
 
 ## The cron
 
