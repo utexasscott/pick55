@@ -189,8 +189,8 @@ class GameOptionCell
 
 		ob_start();
 		?>
-		<td class="<?=implode(' ', $td_classes)?>">
-			<div class="d-flex justify-content-between fw-bold p-2 mb-1 align-items-start"><?=$option_name?></div>
+		<td class="<?=implode(' ', $td_classes)?>" data-option="<?=$params['option']?>">
+			<div class="d-flex justify-content-between fw-bold p-2 mb-1 align-items-start option-name"><?=$option_name?></div>
 			<div class="small-names">
 				<?php if ($params['option'] == '0'): ?>
 					<?php foreach ($no_pick_player_ids as $player_id): ?>

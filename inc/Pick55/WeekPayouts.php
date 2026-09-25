@@ -260,9 +260,14 @@ class WeekPayouts
 		foreach (WeekWinner::where('week_id', '=', $week->id)->get() as $row) {
 			$existing[(int) $row->er_user_id][] = $row;
 		}
-		if (sizeof($existing)) {
-			$recent = $last_game_at && strtotime($last_game_at) > time() - self::RESYNC_DAYS * 86400;
-			if (!$recent) {
+		$recent = $last_game_at && strtotime($last_game_at) > time() - self::RESYNC_DAYS * 86400;
+		if (!$recent) {
+			if (sizeof($existing)) {
+				return false;
+			}
+			// A week with no rows yet is written only while its season is
+			// active, so viewing an old week never adds history to it.
+			if (!$week->season || !$week->season->is_active) {
 				return false;
 			}
 		}

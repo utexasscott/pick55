@@ -8,8 +8,10 @@ use Pick55\Page;
 use Pick55\WeekPayouts;
 use Pick55\WeekResults;
 use Pick55\Models\Game;
+use Pick55\Models\GameScore;
 use Pick55\Models\Pool;
 use Pick55\Models\PoolsUsersLink;
+use Pick55\Models\Team;
 use Pick55\Models\Week;
 use Pick55\Models\WeekFormatPayout;
 use Pick55\Snippets\GameOptionCell;
@@ -150,6 +152,60 @@ foreach (Game::hydrate($results['games']) as $game) {
 $has_payouts = $overall['has_payouts'];
 $week_complete = $overall['num_unknowns'] == 0;
 
+// Live scores from ESPN (scrape/live-scores.php, docs/live-scores.md): read
+// outside the cache, absent until the cron has written a row for the game.
+$scores = [];
+$teams = [];
+try {
+	$scores = GameScore::forWeek($week->id);
+}
+catch (Throwable $e) {
+	// The football_game_scores table is not there yet: the page still works.
+	$scores = [];
+}
+$team_ids = [];
+foreach ($games as $game) {
+	$team_ids[] = (int) $game->away_team_id;
+	$team_ids[] = (int) $game->home_team_id;
+}
+foreach (Team::whereIn('id', array_unique(array_filter($team_ids)))->get() as $team) {
+	$teams[$team->id] = $team;
+}
+$any_live = false;
+$score_lines = [];
+foreach ($games as $game) {
+	$away = isset($teams[$game->away_team_id]) ? $teams[$game->away_team_id] : null;
+	$home = isset($teams[$game->home_team_id]) ? $teams[$game->home_team_id] : null;
+	$score_lines[$game->id] = [
+		'away' => $away ? ($game->type == Game::LEAGUE_NFL ? $away->nickname : $away->team) : 'Away',
+		'home' => $home ? ($game->type == Game::LEAGUE_NFL ? $home->nickname : $home->team) : 'Home',
+	];
+	if (isset($scores[$game->id])) {
+		$scores[$game->id]->setRelation('game', $game);
+		if ($scores[$game->id]->isLive()) {
+			$any_live = true;
+		}
+	}
+}
+// Poll the live endpoint while any game is still undecided.
+$poll_live = $overall['num_unknowns'] > 0;
+
+/**
+ * The score line under a game's title: "Georgia 24, Arkansas 17" plus the
+ * status ("Final", "Q3 4:12"). Empty before kickoff or without a score row.
+ */
+$score_line = function (Game $game) use ($scores, $score_lines) {
+	if (!isset($scores[$game->id]) || !$scores[$game->id]->hasScore()) {
+		return '';
+	}
+	$score = $scores[$game->id];
+	$label = $score->getStatusLabel();
+	$status_class = $score->isLive() ? 'status-live' : 'text-muted';
+	return '<span class="score">' . htmlspecialchars($score_lines[$game->id]['away']) . ' ' . (int) $score->away_score
+		. ', ' . htmlspecialchars($score_lines[$game->id]['home']) . ' ' . (int) $score->home_score . '</span>'
+		. ($label !== '' ? ' <span class="' . $status_class . '">' . htmlspecialchars($label) . '</span>' : '');
+};
+
 // Money: what the format pays on the current standing, and the mean over
 // every outcome of the undecided games.
 $payout_by_user_id = [];
@@ -208,6 +264,7 @@ $money = function ($amount) {
 	return '$' . WeekFormatPayout::money($amount);
 };
 
+$scripts = '';
 if ($timeline) {
 	$chart_colors = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300'];
 	$datasets = [];
@@ -259,8 +316,75 @@ if ($timeline) {
 	});
 	</script>
 	<?php
-	$page->setScripts(ob_get_clean());
+	$scripts .= ob_get_clean();
 }
+
+if ($poll_live) {
+	$live_names = [];
+	foreach ($score_lines as $game_id => $names) {
+		$live_names[(string) $game_id] = $names;
+	}
+	ob_start();
+	?>
+	<script>
+	// Live scores: poll season/week/live.php and repaint the score lines and
+	// "leading" badges; reload the page when a result has been set, so the
+	// standings and probabilities recompute.
+	(function () {
+		var url = <?=json_encode($page->link('season/week/live.php?id=' . $week->id))?>;
+		var names = <?=json_encode($live_names)?>;
+		var anyLive = <?=$any_live ? 'true' : 'false'?>;
+		var timer = null;
+		function schedule() {
+			if (timer) {
+				clearTimeout(timer);
+			}
+			timer = setTimeout(poll, anyLive ? 60 * 1000 : 5 * 60 * 1000);
+		}
+		function paint(id, g) {
+			var $row = $('tr[data-game-id="' + id + '"]');
+			if (!$row.length) {
+				return;
+			}
+			var $line = $row.find('.live-score');
+			if (g.state !== 'pre' && g.away_score !== null && g.home_score !== null) {
+				var html = '<span class="score">' + $('<div>').text(names[id].away + ' ' + g.away_score + ', ' + names[id].home + ' ' + g.home_score).html() + '</span>';
+				if (g.label) {
+					html += ' <span class="' + (g.state === 'in' ? 'status-live' : 'text-muted') + '">' + $('<div>').text(g.label).html() + '</span>';
+				}
+				$line.html(html);
+			}
+			$row.find('td[data-option]').removeClass('td-leading').find('.badge-leading').remove();
+			if ($row.data('correct-option') == '0' && (g.leading_option === '1' || g.leading_option === '2')) {
+				$row.find('td[data-option="' + g.leading_option + '"]').addClass('td-leading')
+					.find('.option-name').append(' <span class="badge bg-success badge-leading">leading</span>');
+			}
+		}
+		function poll() {
+			$.getJSON(url).done(function (data) {
+				var reload = false;
+				anyLive = !!data.any_live;
+				$.each(data.games || {}, function (id, g) {
+					var $row = $('tr[data-game-id="' + id + '"]');
+					if ($row.length && $row.data('correct-option') == '0' && g.correct_option !== '0') {
+						reload = true;
+					}
+					paint(id, g);
+				});
+				if (reload) {
+					window.location.reload();
+					return;
+				}
+				schedule();
+			}).fail(schedule);
+		}
+		schedule();
+	})();
+	</script>
+	<?php
+	$scripts .= ob_get_clean();
+}
+$page->setScripts($scripts);
 
 ob_start();
 ?>
@@ -502,6 +626,10 @@ ob_start();
 						$collapse_after = $decided ? GAME_CELL_PICKS : null;
 						$collapse_class = 'js-more-g' . $game->id;
 						$hidden = $decided ? GameOptionCell::hiddenCount($bets_by_game_id[$game->id], $focus_user_ids, $me->id, GAME_CELL_PICKS) : 0;
+						$leading = null;
+						if (!$decided && isset($scores[$game->id])) {
+							$leading = $scores[$game->id]->getLeadingOption();
+						}
 						$cell_params = [
 							'game' => $game,
 							'user_ids' => $focus_user_ids,
@@ -512,11 +640,11 @@ ob_start();
 							'collapse_class' => $collapse_class,
 						];
 						?>
-						<tr>
+						<tr data-game-id="<?=$game->id?>" data-correct-option="<?=$game->correct_option?>">
 							<td>
 								<div class="fw-bold"><?=$game->title?></div>
 								<div class="text-muted"><?=DateTimeDisplay::b($game->date . ' ' . $game->time)?></div>
-								<div class="live-score" data-game-id="<?=$game->id?>"></div>
+								<div class="live-score" data-game-id="<?=$game->id?>"><?=$score_line($game)?></div>
 								<?php if ($hidden): ?>
 									<div class="mt-2"><a href="#" class="btn btn-xs btn-outline-secondary" data-toggle-more=".<?=$collapse_class?>" data-text-alt="Show fewer picks">Show all picks (+<?=$hidden?>)</a></div>
 								<?php endif; ?>
@@ -527,11 +655,13 @@ ob_start();
 								'option' => '1',
 								'show_what_if' => (bool) $num_unknowns,
 								'what_if_option' => isset($what_ifs_by_game_id[$game->id]) ? $what_ifs_by_game_id[$game->id] : null,
+								'leading' => $leading === '1',
 							]);
 							print GameOptionCell::build($cell_params + [
 								'option' => '2',
 								'show_what_if' => (bool) $num_unknowns,
 								'what_if_option' => isset($what_ifs_by_game_id[$game->id]) ? $what_ifs_by_game_id[$game->id] : null,
+								'leading' => $leading === '2',
 							]);
 							if ($show_auto_column) {
 								print GameOptionCell::build($cell_params + [
