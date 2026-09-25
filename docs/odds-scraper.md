@@ -85,7 +85,32 @@ Goal stated by the owner 2026-09-07: lines settle around **Monday 8 pm Central**
 1. ~~Scraper~~ — done 2026-09-25 (this doc's "What exists").
 2. ~~`scrape/run.php`~~ — done 2026-09-25 (see "What exists"). Its PHP 8.0 run on the droplet is unverified until the first cron firing; the code uses nothing newer than 7.4 syntax and only `dom`, `curl`, `mysqli`, which 8.0 there has.
 3. ~~Admin page~~ — done 2026-09-25 (see "The admin page").
-4. **Cron on the droplet** (owner decision, 2026-09-07): Monday 20:15 Central plus a Tuesday 08:00 retry. Droplet facts that bind it (measured 2026-09-24, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup (measured 2026-09-25) — so the scraper and everything `inc/_inc.php` loads must run under 8.0 as well as under Apache's 7.4, and output goes to `/home/beanstalk/logs/scrape/` which already exists.
+4. **Cron on the droplet** — see "The cron" below. Line handed to the owner 2026-09-25; **installed: (unconfirmed — ask)**.
 5. ~~Delete `scrape/odds/`~~ — done 2026-09-25.
+
+## The cron
+
+Owner decision 2026-09-07: Monday 20:15 Central (lines have settled) plus a Tuesday 08:00 retry. Droplet facts that bind it (measured 2026-09-24/25, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central so cron times are local, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup — and output goes to `/home/beanstalk/logs/scrape/`, which already exists. `scrape/raw/` on the droplet is owned by `beanstalk`, so the cron can write it.
+
+The two crontab lines:
+
+```
+15 20 * * 1 /usr/bin/php /home/beanstalk/pick55/scrape/run.php >> /home/beanstalk/logs/scrape/run.log 2>&1
+0 8 * * 2 /usr/bin/php /home/beanstalk/pick55/scrape/run.php >> /home/beanstalk/logs/scrape/run.log 2>&1
+```
+
+Both firings run the same week check, so on a quiet week neither writes anything; on a live week both scrape (the Tuesday file simply becomes the newest, which is what the admin page shows). Install order: push, deploy (`scripts/deploy.sh`) so `run.php` exists on the box, then install. The install command replaces any earlier `run.php` lines in `beanstalk`'s crontab and keeps everything else (owner, PowerShell):
+
+```powershell
+ssh root@143.198.236.171 "(crontab -u beanstalk -l 2>/dev/null | grep -v 'pick55/scrape/run.php'; echo '15 20 * * 1 /usr/bin/php /home/beanstalk/pick55/scrape/run.php >> /home/beanstalk/logs/scrape/run.log 2>&1'; echo '0 8 * * 2 /usr/bin/php /home/beanstalk/pick55/scrape/run.php >> /home/beanstalk/logs/scrape/run.log 2>&1') | crontab -u beanstalk -"
+```
+
+Verify the crontab and dry-run the week check under the droplet's PHP 8.0 as `beanstalk`:
+
+```powershell
+ssh root@143.198.236.171 "crontab -u beanstalk -l; su - beanstalk -c '/usr/bin/php /home/beanstalk/pick55/scrape/run.php --check'"
+```
+
+After the first firing, `/home/beanstalk/logs/scrape/run.log` holds one line per league (or `FAILED: …`). Claude can read `scrape/raw/` and the log over `ssh pick55` if `beanstalk` makes them group- or world-readable; the log directory's permissions are **(unconfirmed — ask)**.
 
 Production state that makes this urgent (measured 2026-09-24): season 18 (2026) has 12 weeks; weeks 1–3 have 14 hand-entered games each, week 4 (`picks_due_date` 2026-09-24) and later have none.

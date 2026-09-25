@@ -17,7 +17,7 @@ Measured 2026-09-24 over SSH as `claude`, except where marked.
 | Tooling | git 2.17.1, Composer 2.1.6 at `/usr/local/bin/composer`. |
 | Last SVN deploy | `.revision` = **149**, files dated 2026-09-18 19:33 (superseded by the git cutover, 2026-09-25). Beanstalk deploys were an export (no `.svn` directory), copied in as `beanstalk`. SVN received r147–r149 after this repo's r146 import. Diffed 2026-09-24 (production tree vs. the import commit): they added declared properties on `App` and `Page`, `#[AllowDynamicProperties]` on `BaseModel` (PHP 8.2 readiness; inert on 7.4), bumped `illuminate/*` 8.58 → 8.61 in `composer.lock`, and added `season/week/raw.php`, a JSON dump of the pick week's games for a logged-in player. All four are now in git, so **git `main` is a superset of production** and the cutover below can proceed. |
 | `inc/_config.php` on the box | 397 bytes, `beanstalk:www-data` mode 640 since the 2026-09-25 cutover (was 644 and world-readable under the SVN export). Apache reads it through the `www-data` group. |
-| Old scrape cron | Ran daily at 02:00 in March 2022 (`scrape/raw/vegas-insider/*/2022-03-2x-02-00-01.html`, logs in `/home/beanstalk/logs/scrape/`). Stopped by 2023. Owned by `beanstalk`'s crontab, which `claude` cannot read. |
+| Scrape cron | Owned by `beanstalk`'s crontab, which `claude` cannot read. The 2022 line ran daily at 02:00 and stopped by 2023; the replacement (Monday 20:15 + Tuesday 08:00, `scrape/run.php` under `/usr/bin/php`) is specified in [odds-scraper.md](odds-scraper.md), "The cron". |
 | What `claude` cannot do | `sudo`, read `/var/log/apache2`, read any crontab, write anywhere under `/home/beanstalk`. |
 
 ## The rule: commit freely, push on go

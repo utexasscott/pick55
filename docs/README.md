@@ -22,5 +22,5 @@ Rules:
 |---|---|---|
 | [deploy.md](deploy.md) | VERTICAL (process) | The DigitalOcean droplet, how code reaches it, the push-is-deploy rule |
 | [database-access.md](database-access.md) | VERTICAL (process) | Local and production MySQL access for Claude, grants, the live-write gate, schema change handling |
-| [odds-scraper.md](odds-scraper.md) | VERTICAL (service) | The VegasInsider line scraper: history, current page structure, the rebuild plan |
+| [odds-scraper.md](odds-scraper.md) | VERTICAL (service) | The VegasInsider line scraper: the `VegasInsider` class and CLIs, page structure, parser rules, team matching, the Games from Scrape admin page, the cron |
 | [results-cache.md](results-cache.md) | VERTICAL (page) | The week results page: what it computes, the fingerprint-keyed cache, the Gray-code enumeration, measurements |
