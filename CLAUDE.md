@@ -30,6 +30,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | How does code reach the droplet? | [docs/deploy.md](docs/deploy.md) |
 | How does Claude reach the local or production DB? Schema changes? | [docs/database-access.md](docs/database-access.md) |
 | How do game lines get scraped from VegasInsider? | [docs/odds-scraper.md](docs/odds-scraper.md) |
+| How does Claude pick a week's 14 games from the scrape? | `/pick-games` skill: [.claude/skills/pick-games/SKILL.md](.claude/skills/pick-games/SKILL.md) |
 | Why is the week results page fast now, and how is its cache invalidated? | [docs/results-cache.md](docs/results-cache.md) |
 | Where do a week's rules and payouts live, and how are formats created? | [docs/week-formats.md](docs/week-formats.md) |
 
@@ -46,7 +47,8 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `cache/` — runtime file cache, git-ignored, created on first use (see [docs/results-cache.md](docs/results-cache.md))
 - `inc/Pick55/Models/` — Eloquent models. Tables are legacy-named: `er_users`, `football_seasons`, `football_weeks`, `football_games`, `football_teams`, `football_bets`, `football_pools`, `football_pool_users`, `er_users_friends`, etc. All models set `$timestamps = false` and `$guarded = []`
 - `inc/Pick55/Snippets/` — static `build(array $params)` HTML/email fragment renderers, each with a short `b(...)` shortcut
-- `scrape/` — VegasInsider odds scraper CLIs (`get-raw.php`, `parse-raw.php`, `run.php` for cron) over `inc/Pick55/VegasInsider.php`; output under git-ignored `scrape/raw/`; see [docs/odds-scraper.md](docs/odds-scraper.md)
+- `scrape/` — VegasInsider odds scraper CLIs (`get-raw.php`, `parse-raw.php`, `run.php` for cron, `slate.php` for the `/pick-games` skill) over `inc/Pick55/VegasInsider.php`; output under git-ignored `scrape/raw/`; see [docs/odds-scraper.md](docs/odds-scraper.md)
+- `.claude/skills/` — project skills, committed; `pick-games` chooses a week's lines from the scrape
 - `static/` — vendored CSS/JS (Bootstrap, Font Awesome, jQuery, Chart.js, stupidtable), `global.css`, `global.js`
 - `scripts/` — droplet-side shell scripts (provisioning, git cutover, deploy); see [docs/deploy.md](docs/deploy.md)
 - `docs/` — project documentation (see above)

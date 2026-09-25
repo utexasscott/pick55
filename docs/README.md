@@ -25,3 +25,4 @@ Rules:
 | [odds-scraper.md](odds-scraper.md) | VERTICAL (service) | The VegasInsider line scraper: the `VegasInsider` class and CLIs, page structure, parser rules, team matching, the Games from Scrape admin page, the cron |
 | [results-cache.md](results-cache.md) | VERTICAL (page) | The week results page: what it computes, the fingerprint-keyed cache, the Gray-code enumeration, measurements |
 | [week-formats.md](week-formats.md) | VERTICAL (concept + admin page) | Week formats and payout rows: the model, payout semantics, the 2026-09-25 seed of every historical week, the format admin page, applying the change to production |
+| [../.claude/skills/pick-games/SKILL.md](../.claude/skills/pick-games/SKILL.md) | VERTICAL (skill) | `/pick-games`: how Claude chooses a week's 14 lines from the scrape (the pool's selection rules, the `scrape/slate.php` helper, the gated create) |
