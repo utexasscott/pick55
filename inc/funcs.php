@@ -23,6 +23,16 @@ function ifempty($val, $default = '') {
 	return $val;
 }
 
+/**
+ * HTML-escapes a value for output in a template.
+ *
+ * @param mixed $val
+ * @return string
+ */
+function h($val) {
+	return htmlspecialchars((string) $val, ENT_QUOTES, 'UTF-8');
+}
+
 function sel($val1, $val2) {
 	if ($val1 == $val2) return 'selected';
 	return '';

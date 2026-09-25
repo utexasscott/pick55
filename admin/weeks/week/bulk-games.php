@@ -1,469 +1,429 @@
 <?php
 
+/**
+ * Games from Scrape: lists the newest VegasInsider scrape per league with a checkbox per
+ * spread and per total, and creates the ticked ones as football_games rows in the chosen week.
+ * See docs/odds-scraper.md.
+ */
+
 require_once __DIR__ . '/../../../inc/_inc.php';
 
 use Pick55\Alert;
 use Pick55\Auth;
 use Pick55\Page;
+use Pick55\VegasInsider;
 use Pick55\Models\Game;
-use Pick55\Models\Season;
 use Pick55\Models\Team;
 use Pick55\Models\Week;
-use Pick55\Snippets\GameForm;
 
 Auth::guardAdmin();
 
-$week = Week::find(get('week_id'));
+$week = Week::find(get('week_id', get('id')));
 if (!$week) {
 	redir('admin/weeks/index.php');
 }
 
 $page = new Page;
-$page->setTitle('Bulk Games - Week #' . $week->id . ' - Weeks - Admin');
+$page->setTitle('Games from Scrape - Week #' . $week->id . ' - Weeks - Admin');
 $page->options['admin_bar']['show'] = true;
-$page->options['admin_bar']['title'] = 'Weeks';
+$page->options['admin_bar']['title'] = 'Week #' . $week->id;
 $page->options['admin_bar']['sub_bar']['type'] = 'week';
 $page->options['admin_bar']['sub_bar']['obj'] = $week;
 
-$teams = Team::orderBy('team', 'ASC')
-	->orderBy('nickname', 'ASC')
+$self = 'admin/weeks/week/bulk-games.php?week_id=' . $week->id;
+
+$season_weeks = Week::where('football_season_id', '=', $week->football_season_id)
+	->orderBy('week_num', 'ASC')
 	->get();
 
-$games = $week->games()
-	->orderBy('type', 'ASC')
+// Teams keyed by league then VegasInsider slug.
+$teams_by_slug = [];
+foreach (Team::all() as $team) {
+	if ($team->vegas_insider_url) {
+		$teams_by_slug[$team->type][strtolower($team->vegas_insider_url)] = $team;
+	}
+}
+
+// Games already in this week, keyed by away:home:bet_type so scrape rows can be flagged.
+$existing_games = $week->games()
 	->orderBy('date', 'ASC')
 	->orderBy('time', 'ASC')
 	->get();
-
-$scrapes = [];
-$scrape_path = __DIR__ . '/../../../scrape/raw/vegas-insider';
-foreach (scandir($scrape_path) as $league) {
-	if (in_array($league, ['.', '..'])) {
-		continue;
-	}
-	$league_path = $scrape_path . '/' . $league;
-	foreach (scandir($league_path) as $file) {
-		if (in_array($file, ['.', '..'])) {
-			continue;
-		}
-		$file_path = $league_path . '/' . $file;
-		if (preg_match('/^(\d+-\d+-\d+)-(\d+-\d+-\d+)\.json$/', $file, $m)) {
-			$date = $m[1];
-			$time = str_replace('-', ':', $m[2]);
-			$ts = strtotime($date . ' ' . $time);
-			if ($ts) {
-				if (!isset($scrapes[$league]) || $scrapes[$league]['ts'] < $ts) {
-					$scrapes[$league] = [
-						'path' => $file_path,
-						'league' => $league,
-						'ts' => $ts,
-						'slug' => $league . '/' . $file,
-					];
-				}
-			}
-		}
-	}
+$existing_by_key = [];
+foreach ($existing_games as $game) {
+	$existing_by_key[$game->away_team_id . ':' . $game->home_team_id . ':' . $game->bet_type] = $game;
 }
 
-$populate_game_data = [];
-if ($scrape_slug = get('scrape_slug')) {
-	foreach ($scrapes as $scrape) {
-		if ($scrape['slug'] == $scrape_slug) {
-			$data = json_decode(file_get_contents($scrape['path']));
-			$unknown_team_slugs = [];
-			foreach ($data as $game_data) {
-				$game_data->league = strtoupper($scrape['league']);
-				$game_data->away_team_id = null;
-				$game_data->home_team_id = null;
-				foreach ($teams as $team) {
-					if ($team->type != $game_data->league) {
-						continue;
+/**
+ * The newest scrape per league, each game annotated with its matched Team rows and
+ * the ids of games already created from it in this week.
+ *
+ * @return array league => scrape or null
+ */
+function load_scrapes() {
+	global $teams_by_slug, $existing_by_key;
+	$scrapes = [];
+	foreach (array_keys(VegasInsider::getUrls()) as $league) {
+		$scrape = VegasInsider::newest($league);
+		if ($scrape) {
+			foreach ($scrape['games'] as $i => $g) {
+				$away = isset($teams_by_slug[$league][$g['away_team']]) ? $teams_by_slug[$league][$g['away_team']] : null;
+				$home = isset($teams_by_slug[$league][$g['home_team']]) ? $teams_by_slug[$league][$g['home_team']] : null;
+				$g['away'] = $away;
+				$g['home'] = $home;
+				$g['matched'] = $away && $home;
+				$g['kickoff_ts'] = strtotime($g['date'] . ' ' . $g['time']);
+				$g['existing'] = [];
+				if ($g['matched']) {
+					foreach (Game::getPickTypes() as $bet_type) {
+						$key = $away->id . ':' . $home->id . ':' . $bet_type;
+						if (isset($existing_by_key[$key])) {
+							$g['existing'][$bet_type] = $existing_by_key[$key];
+						}
 					}
-					if ($team->vegas_insider_url == $game_data->away_team) {
-						$game_data->away_team_id = $team->id;
-					}
-					if ($team->vegas_insider_url == $game_data->home_team) {
-						$game_data->home_team_id = $team->id;
-					}
 				}
-				if (!$game_data->away_team_id) {
-					$unknown_team_slugs[] = $game_data->away_team;
-				}
-				elseif (!$game_data->home_team_id) {
-					$unknown_team_slugs[] = $game_data->home_team;
-				}
-				else {
-					$populate_game_data[] = $game_data;
-				}
+				$scrape['games'][$i] = $g;
 			}
-			if (sizeof($unknown_team_slugs)) {
-				$str = '<ul class="mb-0">';
-				foreach ($unknown_team_slugs as $team_slug) {
-					$str .= '<li>' . $team_slug . '</li>';
-				}
-				$str .= '</ul>';
-				Alert::warning("The following team vegas-insider-urls are not set: " . $str);
-			}
-			break;
 		}
+		$scrapes[$league] = $scrape;
 	}
+	return $scrapes;
 }
 
-$dates = [];
-foreach ($populate_game_data as $k => $v) {
-	$dates[$k] = $v->date;
+$scrapes = load_scrapes();
+
+/**
+ * The short label used inside option text: NFL games use the nickname ("Bills"),
+ * NCAA games the school ("Oklahoma"), matching how games have been entered by hand.
+ *
+ * @param Team $team
+ * @return string
+ */
+function option_label(Team $team) {
+	return $team->type == Game::LEAGUE_NFL ? $team->nickname : $team->team;
 }
-array_multisort($dates, SORT_ASC, $populate_game_data);
+
+/**
+ * @param float $value
+ * @return string "+3.5" / "-3.5"
+ */
+function signed($value) {
+	return ($value > 0 ? '+' : '') . number_format($value, 1);
+}
 
 if (is_post()) {
 	try {
 		if (post('action') == 'create') {
-			$num_success = 0;
-			$game_ids = [];
-			foreach ($_POST['game_id'] as $index => $game_id) {
-				$league = $_POST['league'][$index];
-				$game_date = $_POST['game_date'][$index];
-				$game_time = $_POST['game_time'][$index];
-				$away_team_id = $_POST['away_team_id'][$index];
-				$home_team_id = $_POST['home_team_id'][$index];
-				$pick_type = $_POST['pick_type'][$index];
-				$game_value = $_POST['game_value'][$index];
-
-				$game = null;
-				if ($game_id) {
-					$game = Game::find($game_id);
-					if (!$game) {
-						Alert::warning("Could not save game row #" . $index .": Invalid game ID '" . $game_id . "'.");
-						continue;
-					}
+			// Refuse if a scrape changed under the admin between render and submit.
+			foreach ($scrapes as $league => $scrape) {
+				$posted = post('stamp_' . $league);
+				if ($posted !== null && $posted !== '' && (!$scrape || (string) $scrape['ts'] !== (string) $posted)) {
+					throw new Exception("The " . $league . " scrape changed since this page loaded. Nothing was created; tick the games again.");
+				}
+			}
+			$picks = isset($_POST['pick']) && is_array($_POST['pick']) ? $_POST['pick'] : [];
+			$created = 0;
+			$skipped = [];
+			foreach ($picks as $pick) {
+				if (!preg_match('/^(NFL|NCAA):(\d+):(spread|over-under)$/', $pick, $m)) {
+					continue;
+				}
+				$league = $m[1];
+				$index = (int) $m[2];
+				$bet_type = $m[3];
+				if (!$scrapes[$league] || !isset($scrapes[$league]['games'][$index])) {
+					$skipped[] = $pick . ' (not in the scrape)';
+					continue;
+				}
+				$g = $scrapes[$league]['games'][$index];
+				$label = $g['away_name'] . ' @ ' . $g['home_name'] . ' ' . $bet_type;
+				if (!$g['matched']) {
+					$skipped[] = $label . ' (team not matched)';
+					continue;
+				}
+				if ($g[$bet_type] === null) {
+					$skipped[] = $label . ' (no line)';
+					continue;
+				}
+				if (isset($g['existing'][$bet_type])) {
+					$skipped[] = $label . ' (already game #' . $g['existing'][$bet_type]->id . ')';
+					continue;
+				}
+				$away = $g['away'];
+				$home = $g['home'];
+				$value = round((float) $g[$bet_type], 1);
+				if ($bet_type == Game::BET_TYPE_SPREAD) {
+					$option_1 = option_label($away) . ' (' . signed($value) . ')';
+					$option_2 = option_label($home) . ' (' . signed(-1 * $value) . ')';
 				}
 				else {
-					if ($away_team_id || $home_team_id) {
-						$game = Game::create([
-							'football_week_id' => $week->id,
-						]);
-					}
-					else {
-						continue;
-					}
+					$option_1 = 'OVER (' . number_format($value, 1) . ')';
+					$option_2 = 'UNDER (' . number_format($value, 1) . ')';
 				}
-
-				$away_team = Team::find($away_team_id);
-				$home_team = Team::find($home_team_id);
-
-				$option_1 = '';
-				$option_2 = '';
-				if ($pick_type == Game::BET_TYPE_OVER_UNDER) {
-					$option_1 = 'OVER (' . $game_value . ')';
-					$option_2 = 'UNDER (' . $game_value . ')';
-				}
-				elseif ($pick_type == Game::BET_TYPE_SPREAD) {
-					$option_1 = ($away_team ? $away_team->team : 'Away Team') . ' (' . round($game_value, 1) . ')';
-					$option_2 = ($home_team ? $home_team->team : 'Home Team') . ' (' . round($game_value * -1, 1) . ')';
-				}
-
-				$game->type = $league;
-				$game->date = strtotime($game_date) ? date("Y-m-d", strtotime($game_date)) : null;
-				$game->time = strtotime($game_time) ? date("H:i:s", strtotime($game_time)) : null;
-				$game->away_team_id = ifempty($away_team_id, null);
-				$game->home_team_id = ifempty($home_team_id, null);
-				$game->bet_type = $pick_type;
-				$game->value = ifempty($game_value, null);
-				$game->title = ($away_team ? $away_team->getName() : '') . ' @ ' . ($home_team ? $home_team->getName() : '');
-				$game->option_1 = $option_1;
-				$game->option_2 = $option_2;
-				$game->save();
-				$game_ids[] = $game->id;
-				$num_success++;
+				$game = Game::create([
+					'football_week_id' => $week->id,
+					'type' => $league,
+					'away_team_id' => $away->id,
+					'home_team_id' => $home->id,
+					'title' => $away->getName() . ' @ ' . $home->getName(),
+					'date' => $g['date'],
+					'time' => $g['time'],
+					'bet_type' => $bet_type,
+					'value' => $value,
+					'option_1' => $option_1,
+					'option_2' => $option_2,
+				]);
+				$existing_by_key[$away->id . ':' . $home->id . ':' . $bet_type] = $game;
+				$created++;
 			}
-			Game::where('football_week_id', '=', $week->id)
-				->whereNotIn('id', $game_ids)
-				->delete();
-			Alert::success("Saved " . $num_success . " games.");
-			redir('admin/weeks/week/bulk-games.php?week_id=' . $week->id);
+			if ($created) {
+				Alert::success("Created " . $created . " game" . ($created == 1 ? '' : 's') . " in Week " . $week->week_num . ".");
+			}
+			else {
+				Alert::warning("No games were created. Tick at least one spread or total first.");
+			}
+			if (sizeof($skipped)) {
+				Alert::warning("Skipped: <ul class=\"mb-0\"><li>" . implode('</li><li>', array_map('h', $skipped)) . "</li></ul>");
+			}
+		}
+		elseif (post('action') == 'scrape') {
+			foreach (array_keys(VegasInsider::getUrls()) as $league) {
+				try {
+					$result = VegasInsider::scrape($league);
+					Alert::success("Scraped " . $league . ": " . sizeof($result['games']) . " games.");
+				}
+				catch (Exception $e) {
+					Alert::error("Scraping " . $league . " failed: " . h($e->getMessage()));
+				}
+			}
 		}
 	}
 	catch (Exception $e) {
 		Alert::error($e->getMessage());
 	}
-	redir();
+	redir($self);
 }
 
 ob_start();
 ?>
 <script>
 $(document).ready(function () {
-	$('body').on('change', '[name="league[]"]', function (event, is_init = false) {
-		var game_row = $(this).parents('.game').first();
-		game_row.find('[data-team-league]').hide();
-		game_row.find('[data-team-league="' + $(this).val() + '"]').show();
-		if (!is_init) {
-			game_row.find('[data-team-league="' + $(this).val() + '"][value=""]').prop('selected', true);
-		}
+	function update_count() {
+		var n = $('input[name="pick[]"]:checked').length;
+		$('.pick-count').text(n);
+		$('.action-create').prop('disabled', n == 0);
+	}
+	$('body').on('change', 'input[name="pick[]"]', update_count);
+	$('body').on('change', '.ck-all', function () {
+		var checked = $(this).prop('checked');
+		$('input[name="pick[]"].' + $(this).data('target') + ':not(:disabled)').prop('checked', checked);
+		update_count();
 	});
-	$('[name="league[]"]').trigger('change', true);
-
-	$('body').on('click', '.action-remove-game', function () {
-		$(this).parents('.game').first().remove();
-		return false;
+	$('body').on('click', '.action-scrape', function () {
+		$(this).prop('disabled', true).text('Scraping…');
+		$(this).closest('form').submit();
 	});
-
-	$('.action-add-game').on('click', function () {
-		var game_template = $('.game-template').first();
-		var game_row = game_template.clone();
-		game_row.removeClass('hidden');
-		game_row.removeClass('game-template');
-		game_template.parents('table').first().append(game_row);
-		game_row.find('select option:selected').prop('selected', false);
-		game_row.find('input').val('');
-		return false;
-	});
-
-	$('.remove-unselected-games').on('click', function () {
-		$('.ck-game-off').each(function () {
-			$(this).remove();
-		});
-	});
-	$(".ck-game").on('click', function () {
-		if ($(this).hasClass('ck-game-off')) {
-			$(this).addClass('ck-game-on');
-			$(this).removeClass('ck-game-off');
-		}
-		else {
-			$(this).addClass('ck-game-off');
-			$(this).removeClass('ck-game-on');
-		}
-	});
+	update_count();
 });
-
 </script>
 <?php
 $page->setScripts(ob_get_clean());
 
 /**
- * @param array $game_data
- * @param array $options
+ * @param array $g annotated scrape game
+ * @param string $side 'away' or 'home'
+ * @return string
  */
-function render_game_row(array $game_data = []) {
-	global $teams;
-	$game_data = array_merge([
-		'template' => false,
-		'populated' => false,
-		'id' => null,
-		'league' => null,
-		'date' => null,
-		'time' => null,
-		'away_team_id' => null,
-		'home_team_id' => null,
-		'bet_type' => null,
-		'value' => null,
-	], $game_data);
+function render_team_cell(array $g, $side) {
+	$team = $g[$side];
+	$name = $g[$side . '_name'];
+	$slug = $g[$side . '_team'];
 	ob_start();
-	?>
-	<tr class="align-middle game <?=$game_data['populated'] ? 'ck-game ck-game-off' : '' ?><?=$game_data['template'] ? 'game-template hidden' : ''?>">
-		<td class="text-center">
-			<?php if ($game_data['populated']): ?>
-				<input type="hidden" name="game_id[]" value="">
-				<input type="hidden" name="league[]" value="<?=$game_data['league']?>">
-				<?=$game_data['league']?>
-			<?php else: ?>
-				<input type="hidden" name="game_id[]" value="<?=$game_data['id']?>">
-				<select name="league[]" class="form-select w-auto">
-					<?php foreach (Game::getLeagues() as $league): ?>
-						<option <?=sel($game_data['league'], $league)?> value="<?=$league?>"><?=$league?></option>
-					<?php endforeach; ?>
-				</select>
-			<?php endif; ?>
-		</td>
-		<td>
-			<?php if ($game_data['populated']): ?>
-				<input type="hidden" name="game_date[]" value="<?=date("Y-m-d", strtotime($game_data['date']))?>">
-				<input type="hidden" name="game_time[]" value="<?=date("H:i:s", strtotime($game_data['time']) - 60*60)?>">
-				<div style="float: left"><?=date("l m/d", strtotime($game_data['date']))?></div>
-				<div style="float: right;"><?=date("g:i A", strtotime($game_data['time']) - 60*60)?></div>
-			<?php else: ?>
-				<div class="input-group w-auto">
-					<input type="date" class="form-control" name="game_date[]" value="<?=strtotime($game_data['date']) ? date("Y-m-d", strtotime($game_data['date'])) : ''?>">
-					<input type="time" class="form-control" name="game_time[]" value="<?=strtotime($game_data['time']) ? date("H:i:s", strtotime($game_data['time'])) : ''?>">
-				</div>
-			<?php endif; ?>
-		</td>
-		<td class="text-end">
-			<?php if ($game_data['populated']): ?>
-				<input type="hidden" name="away_team_id[]" value="<?=$game_data['away_team_id']?>">
-				<?=$game_data['away_team']?>
-			<?php else: ?>
-				<select name="away_team_id[]" class="form-select">
-					<?php foreach (Game::getLeagues() as $league): ?>
-						<option data-team-league="<?=$league?>" value=""></option>
-					<?php endforeach; ?>
-					<?php foreach ($teams as $team): ?>
-						<option
-							value="<?=$team->id?>"
-							data-team="<?=$team->team?>"
-							data-team-league="<?=$team->type?>"
-							style="<?=$team->getCss()?>"
-							<?=sel($game_data['away_team_id'], $team->id)?>
-							><?=$team->team?> <?=$team->nickname?>
-						</option>
-					<?php endforeach; ?>
-				</select>
-			<?php endif; ?>
-		</td>
-		<td class="text-center">@</td>
-		<td>
-			<?php if ($game_data['populated']): ?>
-				<input type="hidden" name="home_team_id[]" value="<?=$game_data['home_team_id']?>">
-				<?=$game_data['home_team']?>
-			<?php else: ?>
-				<select name="home_team_id[]" class="form-select">
-					<?php foreach (Game::getLeagues() as $league): ?>
-						<option data-team-league="<?=$league?>" value=""></option>
-					<?php endforeach; ?>
-					<?php foreach ($teams as $team): ?>
-						<option
-							value="<?=$team->id?>"
-							data-team="<?=$team->team?>"
-							data-team-league="<?=$team->type?>"
-							style="<?=$team->getCss()?>"
-							<?=sel($game_data['home_team_id'], $team->id)?>
-							><?=$team->team?> <?=$team->nickname?>
-						</option>
-					<?php endforeach; ?>
-				</select>
-			<?php endif; ?>
-		</td>
-		<td>
-			<?php if ($game_data['populated']): ?>
-				<input type="hidden" name="pick_type[]" value="<?=$game_data['bet_type']?>">
-				<?=$game_data['bet_type']?>
-			<?php else: ?>
-				<select name="pick_type[]" class="form-select w-auto">
-					<?php foreach (Game::getPickTypes() as $pick_type): ?>
-						<option <?=sel($game_data['bet_type'], $pick_type)?> value="<?=$pick_type?>"><?=$pick_type?></option>
-					<?php endforeach; ?>
-				</select>
-			<?php endif; ?>
-		</td>
-		<td>
-			<?php if ($game_data['populated']): ?>
-				<input type="hidden" name="game_value[]" value="<?=$game_data['value']?>">
-				<?=$game_data['value']?>
-			<?php else: ?>
-				<input type="text" name="game_value[]" value="<?=$game_data['value']?>" class="form-control">
-			<?php endif; ?>
-		</td>
-		<td>
-			<button class="action-remove-game btn btn-outline-danger btn-xs mt-2"><i class="fas fa-times"></i></button>
-		</td>
-	</tr>
-	<?php
+	if ($team) {
+		?>
+		<span class="text-success" title="matched football_teams #<?=$team->id?> by slug '<?=h($slug)?>'"><i class="fas fa-check"></i></span>
+		<span class="fw-bold"><?=h($team->getName())?></span>
+		<?php
+	}
+	else {
+		?>
+		<span class="text-danger" title="no football_teams row has this slug"><i class="fas fa-exclamation-triangle"></i></span>
+		<?=h($name)?>
+		<a class="badge bg-warning text-dark text-decoration-none" href="<?=config('base_url')?>admin/teams/index.php" title="Set this slug on the team's edit page">slug: <?=h($slug)?></a>
+		<?php
+	}
+	return ob_get_clean();
+}
+
+/**
+ * @param array $g annotated scrape game
+ * @param string $league
+ * @param int $index
+ * @param string $bet_type
+ * @return string
+ */
+function render_pick_cell(array $g, $league, $index, $bet_type) {
+	$value = $g[$bet_type];
+	ob_start();
+	if ($value === null) {
+		?><span class="text-muted">no line</span><?php
+	}
+	elseif (isset($g['existing'][$bet_type])) {
+		$game = $g['existing'][$bet_type];
+		?>
+		<span class="text-muted"><?=$bet_type == Game::BET_TYPE_SPREAD ? signed($value) : number_format($value, 1)?></span>
+		<a class="badge bg-secondary text-decoration-none" href="<?=config('base_url')?>admin/games/game/index.php?id=<?=$game->id?>" title="already in this week as game #<?=$game->id?> (<?=h($game->value)?>)">in week</a>
+		<?php
+	}
+	elseif (!$g['matched']) {
+		?><span class="text-muted"><?=$bet_type == Game::BET_TYPE_SPREAD ? signed($value) : number_format($value, 1)?></span><?php
+	}
+	else {
+		$id = 'pick-' . $league . '-' . $index . '-' . $bet_type;
+		?>
+		<div class="form-check">
+			<input class="form-check-input ck-<?=$league?>-<?=$bet_type?>" type="checkbox" name="pick[]" id="<?=$id?>" value="<?=$league?>:<?=$index?>:<?=$bet_type?>">
+			<label class="form-check-label fw-bold" for="<?=$id?>"><?=$bet_type == Game::BET_TYPE_SPREAD ? signed($value) : number_format($value, 1)?></label>
+		</div>
+		<?php
+	}
 	return ob_get_clean();
 }
 
 ob_start();
 ?>
 <div class="container py-4">
-	<form action="" method="get">
-		<input type="hidden" name="week_id" value="<?=$week->id?>">
-		<div class="card mb-3">
-			<h4 class="card-header">Populate from Scrape Data File</h4>
-			<div class="card-body">
-				<?php if (sizeof($populate_game_data)): ?>
-					<i>Currently populating <?=sizeof($populate_game_data)?> games. <a href="?week_id=<?=$week->id?>">Reset</a></i>
+	<div class="card mb-4">
+		<h4 class="card-header">Games from Scrape - <?=h($week->season->name)?> - Week <?=$week->week_num?></h4>
+		<div class="card-body">
+			<div class="row g-3 align-items-end">
+				<div class="col-md-6">
+					<form action="" method="get">
+						<label class="form-label" for="week_id">Create games in</label>
+						<div class="input-group">
+							<select name="week_id" id="week_id" class="form-select">
+								<?php foreach ($season_weeks as $w): ?>
+									<option <?=sel($w->id, $week->id)?> value="<?=$w->id?>">Week <?=$w->week_num?><?=$w->picks_due_date ? ' - picks due ' . date("D m/d g:i A", strtotime($w->picks_due_date)) : ''?> (<?=$w->games()->count()?> games)</option>
+								<?php endforeach; ?>
+							</select>
+							<button class="btn btn-outline-primary" type="submit">Switch</button>
+						</div>
+					</form>
+				</div>
+				<div class="col-md-6 text-md-end">
+					<form action="" method="post">
+						<input type="hidden" name="action" value="scrape">
+						<button type="button" class="action-scrape btn btn-outline-secondary" title="Fetch both VegasInsider pages now instead of waiting for the Monday cron">Scrape now</button>
+					</form>
+				</div>
+			</div>
+			<div class="fst-italic mt-3">
+				Tick the spreads and totals to create. Spreads are against the away team: negative means the away team is favored.
+				Every line already ends in .5. Kickoffs are Central time.
+				A <span class="text-danger"><i class="fas fa-exclamation-triangle"></i></span> team has no <code>football_teams</code> row with that Vegas Insider slug; set the slug on the team's edit page and reload.
+			</div>
+		</div>
+	</div>
+
+	<form action="" method="post" id="create-form">
+		<input type="hidden" name="action" value="create">
+		<?php foreach ($scrapes as $league => $scrape): ?>
+			<input type="hidden" name="stamp_<?=$league?>" value="<?=$scrape ? $scrape['ts'] : ''?>">
+			<div class="card mb-4">
+				<h4 class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+					<span class="text-<?=strtolower($league)?>"><?=$league?></span>
+					<?php if ($scrape): ?>
+						<small class="text-muted fs-6">scraped <?=date("D m/d g:i A", $scrape['ts'])?> (<?=ago($scrape['ts'], 1)?>), <?=sizeof($scrape['games'])?> games</small>
+					<?php endif; ?>
+				</h4>
+				<?php if (!$scrape): ?>
+					<div class="card-body text-muted">No <?=$league?> scrape on disk yet. Click "Scrape now" or wait for the Monday cron.</div>
+				<?php elseif (!sizeof($scrape['games'])): ?>
+					<div class="card-body text-muted">The newest <?=$league?> scrape parsed to zero games.</div>
 				<?php else: ?>
-					<div class="input-group">
-						<select name="scrape_slug" class="form-select">
-							<option></option>
-							<?php foreach ($scrapes as $scrape): ?>
-								<option value="<?=$scrape['slug']?>"><?=$scrape['league'] . ' - ' . date("Y-m-d", $scrape['ts'])?></option>
-							<?php endforeach; ?>
-						</select>
-						<button class="btn btn-outline-primary" type="submit">Populate</button>
+					<div class="table-responsive">
+						<table class="table table-sm table-striped align-middle mb-0">
+							<thead>
+								<tr>
+									<th>Kickoff</th>
+									<th class="text-end">Away</th>
+									<th class="text-center">@</th>
+									<th>Home</th>
+									<th class="text-nowrap">
+										<div class="form-check">
+											<input class="form-check-input ck-all" type="checkbox" id="all-<?=$league?>-spread" data-target="ck-<?=$league?>-<?=Game::BET_TYPE_SPREAD?>">
+											<label class="form-check-label text-spread" for="all-<?=$league?>-spread">Spread</label>
+										</div>
+									</th>
+									<th class="text-nowrap">
+										<div class="form-check">
+											<input class="form-check-input ck-all" type="checkbox" id="all-<?=$league?>-ou" data-target="ck-<?=$league?>-<?=Game::BET_TYPE_OVER_UNDER?>">
+											<label class="form-check-label text-ou" for="all-<?=$league?>-ou">O/U</label>
+										</div>
+									</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach ($scrape['games'] as $index => $g): ?>
+									<tr class="<?=$g['kickoff_ts'] && $g['kickoff_ts'] < time() ? 'text-muted' : ''?>">
+										<td class="text-nowrap" title="<?=h($g['kickoff_utc'])?> UTC">
+											<?=$g['kickoff_ts'] ? date("D m/d g:i A", $g['kickoff_ts']) : '?'?>
+											<?php if ($g['kickoff_ts'] && $g['kickoff_ts'] < time()): ?><span class="badge bg-light text-dark">started</span><?php endif; ?>
+										</td>
+										<td class="text-end"><?=render_team_cell($g, 'away')?></td>
+										<td class="text-center">@</td>
+										<td><?=render_team_cell($g, 'home')?></td>
+										<td class="text-nowrap"><?=render_pick_cell($g, $league, $index, Game::BET_TYPE_SPREAD)?></td>
+										<td class="text-nowrap"><?=render_pick_cell($g, $league, $index, Game::BET_TYPE_OVER_UNDER)?></td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
 					</div>
 				<?php endif; ?>
 			</div>
+		<?php endforeach; ?>
+		<div class="card mb-4">
+			<div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+				<span>Week <?=$week->week_num?> has <?=sizeof($existing_games)?> game<?=sizeof($existing_games) == 1 ? '' : 's'?> now.</span>
+				<button type="submit" class="action-create btn btn-primary" disabled>Create <span class="pick-count">0</span> ticked games in Week <?=$week->week_num?></button>
+			</div>
 		</div>
 	</form>
-	<form action="" method="post" id="bulk-games-form">
-		<input type="hidden" name="action" value="create">
-		<div class="card">
-			<h4 class="card-header">Bulk Games Tool - <?=$week->season->name?> - Week <?=$week->week_num?></h4>
-			<div class="card-body">
-				<div class="fst-italic">For spreads, negative value means away team is favored, positive value means home team is favored.</div>
-			</div>
 
+	<?php if (sizeof($existing_games)): ?>
+		<div class="card">
+			<h4 class="card-header">Games in Week <?=$week->week_num?></h4>
 			<div class="table-responsive">
-				<table class="table table-sm table-striped">
+				<table class="table table-sm table-striped align-middle mb-0">
 					<thead>
-						<tr class="text-center">
+						<tr>
+							<th>ID</th>
 							<th>League</th>
-							<th>Kickoff At</th>
-							<th>Away Team</th>
-							<th>@</th>
-							<th>Home Team</th>
+							<th>Kickoff</th>
+							<th>Game</th>
 							<th>Type</th>
-							<th>Value</th>
-							<th></th>
+							<th class="text-end">Value</th>
+							<th>Options</th>
 						</tr>
 					</thead>
 					<tbody>
-						<?php
-						print render_game_row(['template' => true]);
-						if (!sizeof($games) && !sizeof($populate_game_data)) {
-							print render_game_row();
-						}
-						foreach ($games as $game) {
-							print render_game_row([
-								'id' => $game->id,
-								'league' => $game->type,
-								'date' => $game->date,
-								'time' => $game->time,
-								'away_team_id' => $game->away_team_id,
-								'home_team_id' => $game->home_team_id,
-								'bet_type' => $game->bet_type,
-								'value' => $game->value,
-							]);
-						}
-						foreach ($populate_game_data as $game_data) {
-							print render_game_row([
-								'league' => $game_data->league,
-								'date' => $game_data->date,
-								'time' => $game_data->time,
-								'away_team' => $game_data->away_team,
-								'home_team' => $game_data->home_team,
-								'away_team_id' => $game_data->away_team_id,
-								'home_team_id' => $game_data->home_team_id,
-								'bet_type' => Game::BET_TYPE_SPREAD,
-								'value' => $game_data->spread,
-								'populated' => true,
-							]);
-							print render_game_row([
-								'league' => $game_data->league,
-								'date' => $game_data->date,
-								'time' => $game_data->time,
-								'away_team' => $game_data->away_team,
-								'home_team' => $game_data->home_team,
-								'away_team_id' => $game_data->away_team_id,
-								'home_team_id' => $game_data->home_team_id,
-								'bet_type' => Game::BET_TYPE_OVER_UNDER,
-								'value' => $game_data->{'over-under'},
-								'populated' => true,
-							]);
-						}
-						?>
+						<?php foreach ($existing_games as $game): ?>
+							<tr>
+								<td><a href="<?=config('base_url')?>admin/games/game/index.php?id=<?=$game->id?>"><?=$game->id?></a></td>
+								<td class="text-<?=strtolower($game->type)?>"><?=$game->type?></td>
+								<td class="text-nowrap"><?=date("D m/d g:i A", strtotime($game->date . ' ' . $game->time))?></td>
+								<td><?=h($game->title)?></td>
+								<td class="<?=$game->bet_type == Game::BET_TYPE_SPREAD ? 'text-spread' : 'text-ou'?>"><?=$game->bet_type?></td>
+								<td class="text-end"><?=$game->value?></td>
+								<td><?=h($game->option_1)?> / <?=h($game->option_2)?></td>
+							</tr>
+						<?php endforeach; ?>
 					</tbody>
 				</table>
 			</div>
-			<div class="card-footer">
-				<div class="d-flex justify-content-between">
-					<a href="#" class="action-add-game btn btn-outline-primary">Add Game</a>
-					<span class="remove-unselected-games  btn btn-outline-danger">Remove Unselected</span>
-					<button type="submit" class="btn btn-primary">Save</button>
-				</div>
-			</div>
 		</div>
-	</form>
+	<?php endif; ?>
 </div>
 <?php
 $page->setContent(ob_get_clean());

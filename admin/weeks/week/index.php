@@ -85,7 +85,7 @@ ob_start();
 
 				<?php if (!$week->canPick() && !$week->canSeeResults()): ?>
 					<div class="mb-3">
-						<a class="btn btn-success" href="bulk-games.php?week_id=<?=$week->id?>">Bulk Games Tool</a>
+						<a class="btn btn-success" href="bulk-games.php?week_id=<?=$week->id?>">Games from Scrape</a>
 					</div>
 				<?php endif; ?>
 

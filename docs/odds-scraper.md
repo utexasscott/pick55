@@ -10,7 +10,7 @@
 | Fetch CLI | `scrape/get-raw.php <nfl\|ncaa>` | Fetches one league page and stores it as `scrape/raw/vegas-insider/<league>/<Y-m-d-H-i-s>.html`. Paths are anchored on `__DIR__` (the 2021 version used the working directory, so a cron run from `$HOME` wrote there). |
 | Parse CLI | `scrape/parse-raw.php [--all] [file.html]` | Parses stored pages into sibling `.json`. No arguments: every `.html` without a `.json`. `--all`: re-parse everything. A file argument: that file, always re-parsed. |
 | Cron CLI | `scrape/run.php [--check\|--force]` | The scheduled entry point. Queries `football_weeks` for a row with `picks_due_date` after now and less than 7 days ahead; with none it exits 0 silently. With one it fetches and parses both leagues and prints one timestamped log line per league (`week #229 (season 18 week 4, picks due …): NFL 15 games -> …json`). A failed league is logged as `FAILED` and sets exit status 1; the other league still runs. `--check` prints the decision and fetches nothing; `--force` skips the week check. Verified 2026-09-25 locally under PHP 7.4 (fetch, parse, log lines). |
-| Consumer | `admin/weeks/week/bulk-games.php` | Reads the newest `.json` per league and offers the games to the admin (rebuild pending, see plan). |
+| Admin page | `admin/weeks/week/bulk-games.php?week_id=N` ("Games from Scrape", linked from the week settings page while the week has no games) | See "The admin page" below. |
 | Dead generation | `scrape/odds/*` (2019, Puppeteer + `table.frodds-data-tbl`) | Deletion pending, see plan. |
 
 `scrape/raw/` is git-ignored. On the droplet it holds files stamped daily at 02:00 through 2022-03-25 from the old cron (measured 2026-09-24), carried over by the git cutover.
@@ -59,6 +59,19 @@ Measured 2026-09-25 against fresh fetches: NFL 15 games, NCAA 70 games (71 on th
 
 Slug edits are the owner's, through the admin UI, not a script (owner, 2026-09-25).
 
+## The admin page — `admin/weeks/week/bulk-games.php`
+
+Rewritten 2026-09-25; the 2021 bulk editor (add/remove/save-all rows, deleting unsubmitted games) is gone. Games are edited on `admin/games/game/index.php` as before.
+
+- Takes `week_id` (or `id`). A select at the top switches to any week of the same season, showing each week's picks-due date and game count.
+- One card per league showing the **newest** `.json` on disk (`VegasInsider::newest`), its stamp and age, one row per game: kickoff (Central, `started` badge once past), away, home, spread, total.
+- **Matched-team indicator**: a green check with the `football_teams` name when the page slug equals `vegas_insider_url` for that league; a red triangle, the **page's team name** and a `slug: …` badge (linking to the teams list) when not. Unmatched games are listed, never hidden, and their lines are shown but cannot be ticked.
+- A checkbox per **spread** and per **total** (a game can yield both, as the hand-entered weeks do). A line already in the week for the same away/home/bet type shows an `in week` badge linking to the game instead of a checkbox. Header checkboxes tick every enabled box in that column.
+- **Create**: one button creates every ticked line in the selected week. Each row becomes a `football_games` row: `type`, `date`/`time` from the scrape (already Central), team ids, `bet_type`, `value`, `title` = "Away Name @ Home Name", options `Bengals (-3.5)` / `Steelers (+3.5)` (NFL uses the nickname, NCAA the school, the pool's hand-entry convention) or `OVER (50.5)` / `UNDER (50.5)`. Hidden `stamp_<league>` fields carry the scrape timestamps; if a newer scrape landed between render and submit the whole POST is refused with an alert and nothing is created. Skipped picks (unmatched, no line, already in week) are listed in a warning alert.
+- **Scrape now** button: POSTs `action=scrape`, which fetches and parses both leagues from the web server. On the droplet this writes to `scrape/raw/` as `www-data`; whether that directory is writable by `www-data` is **(unconfirmed — ask)**. A failure is shown as an alert and changes nothing.
+
+Verified 2026-09-25 through Apache at `http://127.0.0.1/pick55/` against the local `pick` database with a planted admin session: page renders without PHP notices (15 NFL + 70 NCAA rows, 69 checkboxes, unmatched slugs visible); a POST with a stale stamp was refused; a POST ticking Bengals@Steelers spread and Chargers@Bills total created games 2413/2414 in week 229 with the fields above, skipped the unmatched Commanders game with a warning, ignored a malformed key silently, and the reload showed both as `in week`. The test rows were deleted afterwards.
+
 ## Running it locally
 
 - `php C:\wamp\www\pick55\scrape\get-raw.php nfl` then `php C:\wamp\www\pick55\scrape\parse-raw.php`.
@@ -70,7 +83,7 @@ Goal stated by the owner 2026-09-07: lines settle around **Monday 8 pm Central**
 
 1. ~~Scraper~~ — done 2026-09-25 (this doc's "What exists").
 2. ~~`scrape/run.php`~~ — done 2026-09-25 (see "What exists"). Its PHP 8.0 run on the droplet is unverified until the first cron firing; the code uses nothing newer than 7.4 syntax and only `dom`, `curl`, `mysqli`, which 8.0 there has.
-3. **Admin page**: `bulk-games.php` lists the newest scrape per league with checkboxes, a matched-team indicator, and a one-click create of the ticked rows into the selected week.
+3. ~~Admin page~~ — done 2026-09-25 (see "The admin page").
 4. **Cron on the droplet** (owner decision, 2026-09-07): Monday 20:15 Central plus a Tuesday 08:00 retry. Droplet facts that bind it (measured 2026-09-24, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup (measured 2026-09-25) — so the scraper and everything `inc/_inc.php` loads must run under 8.0 as well as under Apache's 7.4, and output goes to `/home/beanstalk/logs/scrape/` which already exists.
 5. **Delete `scrape/odds/`.**
 
