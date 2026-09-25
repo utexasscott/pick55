@@ -5,7 +5,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 ## Ubiquitous rules
 
 - **Docs, not memory.** Auto-memory is off for this repo. Durable knowledge lives in this file or in `docs/`, in one of three shapes: VERTICAL (one service/page/process per file), HORIZONTAL (a concept key in the table below, anchored by `*Concept key: NAME*` wherever it applies), UBIQUITOUS (this file). See [docs/README.md](docs/README.md). The turn that changes a thing updates its doc in the same commit.
-- **Commit freely, push on go.** Commit to local `main` without asking, small and often. Never push; a push is the production deploy trigger and only the owner says when. End any turn that leaves unpushed commits by suggesting a push. (`PUSH_IS_DEPLOY`)
+- **Commit freely, push on go.** Commit to local `main` without asking, small and often. Never push; a push is the production deploy trigger and only the owner says when. End any turn that leaves unpushed commits by handing the owner the push and deploy commands from [docs/deploy.md](docs/deploy.md), ready to paste (owner, 2026-09-25). (`PUSH_IS_DEPLOY`)
 - **No live database write without a shown query and a go.** Reads against production are free. Any write or schema change to production is printed as exact SQL first and waits for an explicit go in a later turn. (`LIVE_WRITE_GATE`)
 - **`er_users` is off limits to Claude's DB account.** It holds names and emails. (`PII_TABLE_EXCLUDED`)
 - **Subagents are welcome** whenever the main session's full context is not needed for a task.
@@ -29,6 +29,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | How does Claude reach the local or production DB? Schema changes? | [docs/database-access.md](docs/database-access.md) |
 | How do game lines get scraped from VegasInsider? | [docs/odds-scraper.md](docs/odds-scraper.md) |
 | Why is the week results page fast now, and how is its cache invalidated? | [docs/results-cache.md](docs/results-cache.md) |
+| Where do a week's rules and payouts live, and how are formats created? | [docs/week-formats.md](docs/week-formats.md) |
 
 ## Layout
 
@@ -36,7 +37,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `auth/` — login, signup (email verify), forgot/reset password, logout
 - `account/` — user profile
 - `season/` — player views: my season, standings, `week/pick.php` (make picks), `week/results.php`, `week/save-picks.php` (AJAX JSON endpoint), `week/raw.php` (JSON dump of the pick week's games, added in SVN r147–149)
-- `admin/` — admin-only CRUD for seasons, weeks, games, teams, pools (guarded by `Auth::guardAdmin()`). `admin/weeks/week/bulk-games.php` creates games from scraper output.
+- `admin/` — admin-only CRUD for seasons, weeks, games, teams, pools, week formats (guarded by `Auth::guardAdmin()`). `admin/weeks/week/bulk-games.php` creates games from scraper output; `admin/formats/` creates and edits week formats (see [docs/week-formats.md](docs/week-formats.md)).
 - `inc/_inc.php` — bootstrap: loads `inc/_config.php`, session/cookies, mysqli + Eloquent connection, PSR-ish autoloader for `inc/Pick55/`, `funcs.php`, then `global_post_handler.php`
 - `inc/_config.example.php` — copy to `inc/_config.php` (git-ignored). Keys: `base_url`, `sendgrid_api_key`, `dev_email_redir`, `db.*`
 - `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`, `Cache` (file cache), `WeekResults` (results page calculation + cache)
@@ -58,6 +59,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - Season/week resolution: `App::get()->getSeason()` (query `?id=`, else active, else latest). Week state is computed from `picks_due_date` and first game datetime (`Week::canPick()`, `canSeeResults()`).
 - Bump `Page::ASSET_VERSION` when changing `static/css/global.css` or `static/js/global.js` (cache-busting).
 - Picks: each bet has `option` ('0' none, '1'/'2' sides, '3' guaranteed-correct) and a `multiplier` (confidence 0–10; each of 1–10 may be used once per week).
+- A week's rules (name, pools, playoff flag, payouts) come from its `WeekFormat` via `Week::getName()`, `getNumPools()`, `getNumWinners($pool_num)`, `getMinScoreThreshold($pool_num)`, `isPlayoffs()`. `football_weeks` has no rule columns of its own any more (dropped 2026-09-25).
 - Times: the app runs in `America/Chicago`; `football_games.date`/`time` are Central wall-clock.
 
 ## Running locally (measured 2026-09-07)
@@ -75,3 +77,4 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - Several places build SQL by string interpolation (e.g. `season/week/save-picks.php`); values there are pre-validated ints. Prefer query builder bindings for new code.
 - `Emailer` honors `dev_email_redir` in config to reroute all mail in dev.
 - The project was migrated from SVN (Beanstalk, r146) to git on 2026-09-04; the old `trunk/` prefix is gone, so local URLs are `/pick55/` not `/pick55/trunk/`.
+- Weeks are created by hand in the database (no create-week page); the admin week page then assigns the format and the pools page creates the pool rows.

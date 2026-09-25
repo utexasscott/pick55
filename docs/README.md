@@ -24,3 +24,4 @@ Rules:
 | [database-access.md](database-access.md) | VERTICAL (process) | Local and production MySQL access for Claude, grants, the live-write gate, schema change handling |
 | [odds-scraper.md](odds-scraper.md) | VERTICAL (service) | The VegasInsider line scraper: the `VegasInsider` class and CLIs, page structure, parser rules, team matching, the Games from Scrape admin page, the cron |
 | [results-cache.md](results-cache.md) | VERTICAL (page) | The week results page: what it computes, the fingerprint-keyed cache, the Gray-code enumeration, measurements |
+| [week-formats.md](week-formats.md) | VERTICAL (concept + admin page) | Week formats and payout rows: the model, payout semantics, the 2026-09-25 seed of every historical week, the format admin page, applying the change to production |
