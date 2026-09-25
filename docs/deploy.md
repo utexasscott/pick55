@@ -26,8 +26,13 @@ Measured 2026-09-24 over SSH as `claude`, except where marked.
 
 - Claude commits to the local `main` **without asking**, in small commits, as work lands.
 - Claude **never pushes to `origin`** on its own. A push is the deploy trigger, and the owner says when.
-- Claude **suggests a push** at the end of any turn that leaves unpushed commits, so it is not forgotten.
+- Claude ends any turn that leaves unpushed commits by **handing the owner both commands** below, ready to paste (owner, 2026-09-25).
 - A push updates GitHub only. The droplet pulls when the owner runs the deploy command below, so "deploy" is two owner actions: push, then deploy.
+
+```powershell
+git -C C:\wamp\www\pick55 push origin main
+ssh root@143.198.236.171 "bash /home/beanstalk/pick55/scripts/deploy.sh"
+```
 
 ## Mechanism
 
