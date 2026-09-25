@@ -31,6 +31,19 @@ $(document).ready(function () {
 	});
 	$(".table-sortable").stupidtable();
 
+	// Expand/collapse: a [data-toggle-more="SELECTOR"] link shows or hides every
+	// element matching SELECTOR (they start hidden with .d-none) and swaps its
+	// own text with data-text-alt.
+	$(document).on('click', '[data-toggle-more]', function (e) {
+		e.preventDefault();
+		var $link = $(this);
+		$($link.data('toggle-more')).toggleClass('d-none');
+		var alt = $link.data('text-alt');
+		if (alt !== undefined) {
+			$link.data('text-alt', $link.text());
+			$link.text(alt);
+		}
+	});
 
 	var $ranked = $('.table-ranked');
 	$ranked.on('aftertablesort', function () {

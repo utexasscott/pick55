@@ -33,6 +33,14 @@ class GameOptionCell
 			// Optional preloaded data (avoids per-cell queries):
 			'players' => null, // user_id => User, must cover every user in user_ids
 			'picks' => null, // list of bet arrays/objects for this game (any option), keys user_id, option, multiplier, id
+			// Collapsing: show only the first N other players' picks (the viewer's
+			// own pick is always shown); the rest get class "d-none <collapse_class>"
+			// so a [data-toggle-more] link can reveal them.
+			'collapse_after' => null,
+			'collapse_class' => '',
+			// Live score: the option currently ahead on the score ('1' or '2'), shown
+			// as a badge while the game has no result yet.
+			'leading' => false,
 		], $params);
 
 		$game = $params['game'];
@@ -171,6 +179,14 @@ class GameOptionCell
 				break;
 		}
 
+		if ($params['leading'] && $game->correct_option == '0' && in_array($params['option'], ['1', '2'])) {
+			$td_classes[] = 'td-leading';
+			$option_name .= ' <span class="badge bg-success badge-leading">leading</span>';
+		}
+
+		$collapse_after = $params['collapse_after'] === null ? null : max(0, (int) $params['collapse_after']);
+		$others_shown = 0;
+
 		ob_start();
 		?>
 		<td class="<?=implode(' ', $td_classes)?>">
@@ -184,7 +200,17 @@ class GameOptionCell
 					<?php endforeach; ?>
 				<?php else: ?>
 					<?php foreach ($picks as $pick): ?>
-						<div class="text-nowrap <?=$params['my_user_id'] && $pick->user_id == $params['my_user_id'] ? 'bg-me' : ''?>">
+						<?php
+						$mine = $params['my_user_id'] && $pick->user_id == $params['my_user_id'];
+						$hidden = false;
+						if ($collapse_after !== null && !$mine) {
+							$hidden = $others_shown >= $collapse_after;
+							if (!$hidden) {
+								$others_shown++;
+							}
+						}
+						?>
+						<div class="text-nowrap <?=$mine ? 'bg-me' : ''?> <?=$hidden ? 'd-none ' . $params['collapse_class'] : ''?>">
 							<span class="small-multiplier"><?=$pick->multiplier?>x</span>
 							<span><?=$players[$pick->user_id]->getDisplayName()?></span>
 						</div>
@@ -194,5 +220,37 @@ class GameOptionCell
 		</td>
 		<?php
 		return ob_get_clean();
+	}
+
+	/**
+	 * How many picks on a game the collapsed cells hide: every option's picks
+	 * by the given users beyond the first $collapse_after other players, the
+	 * viewer's own pick never counted.
+	 *
+	 * @param array $picks  list of bet arrays/objects for the game
+	 * @param array $user_ids
+	 * @param int|null $my_user_id
+	 * @param int $collapse_after
+	 * @return int
+	 */
+	public static function hiddenCount(array $picks, array $user_ids, $my_user_id, $collapse_after)
+	{
+		$user_ids = array_flip(array_map('intval', $user_ids));
+		$others_by_option = [];
+		foreach ($picks as $pick) {
+			$pick = (object) $pick;
+			if (!isset($user_ids[(int) $pick->user_id]) || $pick->option == '0') {
+				continue;
+			}
+			if ($my_user_id && $pick->user_id == $my_user_id) {
+				continue;
+			}
+			$others_by_option[$pick->option] = (isset($others_by_option[$pick->option]) ? $others_by_option[$pick->option] : 0) + 1;
+		}
+		$hidden = 0;
+		foreach ($others_by_option as $n) {
+			$hidden += max(0, $n - (int) $collapse_after);
+		}
+		return $hidden;
 	}
 }

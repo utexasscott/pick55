@@ -29,7 +29,7 @@ A week's rules live on its format: `football_weeks.football_week_format_id` → 
 | `payout` | what each qualifying player receives; NULL = the row is a split pot |
 | `total_payout` | the split pot, shared equally by everyone who qualifies |
 
-**Payout semantics.** A player receives the single largest payout they qualify for. Overall payouts outrank pool payouts, so the overall winner takes the overall amount and their pool's 1st-place amount goes unpaid. This is how the owner's own 2018 formats (ids 1–6) and every description since 2018 are phrased ("Overall winner wins $150. Other pool winners win $63."). The 2014–2017 descriptions phrase the overall prize as a bonus on top of the pool prize; those formats store the sum the overall winner actually received (2014 "Two Pools": pool $64, overall $80, not $16).
+**Payout semantics.** A player receives the single largest payout they qualify for. Ties are competition ranks, and players tied over places r..r+t-1 split the sum of those places' amounts equally (owner, 2026-09-25; before that ties were settled by hand when the winnings were typed in). Overall payouts outrank pool payouts, so the overall winner takes the overall amount and their pool's 1st-place amount goes unpaid. This is how the owner's own 2018 formats (ids 1–6) and every description since 2018 are phrased ("Overall winner wins $150. Other pool winners win $63."). The 2014–2017 descriptions phrase the overall prize as a bonus on top of the pool prize; those formats store the sum the overall winner actually received (2014 "Two Pools": pool $64, overall $80, not $16).
 
 `computeTotalPayout()` therefore adds every overall row (payout × places, or the split pot) and every pool row (× number of pools it applies to, or × players per team for team rows), then subtracts min(overall places, num_pools) × the every-pool 1st-place payout. It assumes the overall winners sit in distinct pools; when that assumption does not hold for a new format, the admin page lets the owner override `total_payout`.
 
@@ -41,6 +41,8 @@ A week's rules live on its format: `football_weeks.football_week_format_id` → 
 | number of pools the format wants | `Week::getNumPools()`; `Week::setNumPools()` creates or removes the `football_pools` rows to match |
 | paying places and point threshold for the results page | `Week::getNumWinners($pool_num)`, `Week::getMinScoreThreshold($pool_num)`; `$pool_num` is the selected pool's `pool_num`, null for the overall view. With a pool selected the pool rows decide (finals: 15 places in pool 1, 4 in pool 2); otherwise the overall rows do |
 | playoff week? | `Week::isPlayoffs()`; `season/standings.php` joins the format for the same test in SQL |
+| money per player for a standing (current or hypothetical) | `Pick55\WeekPayouts::tables()` / `assign()` / `assignAll()`; the results page's `payout` / `expected_payout` come from these (see [results-cache.md](results-cache.md), "Money") |
+| recording a finished week's winners | `Pick55\WeekPayouts::syncWinners($week, $amounts, $last_game_at)`, called by the results page once every game is decided; `football_week_winners` is no longer typed in by the admin (owner, 2026-09-25) |
 | payout table HTML / one-line text | `Pick55\Snippets\WeekFormatPayouts::b($format)` (a horizontal table: group, place, amount rows, one column per payout row, total last; owner, 2026-09-25) / `::b($format, true)` |
 | formats for a select | `WeekFormat::getListForSelect($num_players)` puts the matching league size first |
 
