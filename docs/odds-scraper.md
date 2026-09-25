@@ -2,38 +2,75 @@
 
 **Shape: VERTICAL (service).** Pulls the week's NFL and NCAA games with consensus spreads and totals so the admin does not key games in by hand.
 
-## Status (2026-09-07)
+## What exists (2026-09-25)
 
-Two generations of scraper exist in the repo and **neither works against today's site**:
+| Piece | File | Does |
+|---|---|---|
+| Scraper class | `inc/Pick55/VegasInsider.php` | Everything: URLs, fetch (Guzzle, browser User-Agent), raw-file storage, parser, newest-scrape lookup, log line. Autoloaded like any `Pick55\` class, so the admin page and the CLIs share it. |
+| Fetch CLI | `scrape/get-raw.php <nfl\|ncaa>` | Fetches one league page and stores it as `scrape/raw/vegas-insider/<league>/<Y-m-d-H-i-s>.html`. Paths are anchored on `__DIR__` (the 2021 version used the working directory, so a cron run from `$HOME` wrote there). |
+| Parse CLI | `scrape/parse-raw.php [--all] [file.html]` | Parses stored pages into sibling `.json`. No arguments: every `.html` without a `.json`. `--all`: re-parse everything. A file argument: that file, always re-parsed. |
+| Consumer | `admin/weeks/week/bulk-games.php` | Reads the newest `.json` per league and offers the games to the admin (rebuild pending, see plan). |
+| Dead generation | `scrape/odds/*` (2019, Puppeteer + `table.frodds-data-tbl`) | Deletion pending, see plan. |
 
-| Generation | Files | Fetch | Parse target | State |
-|---|---|---|---|---|
-| 1 (2019-era) | `scrape/odds/*` | Puppeteer (`get-odds-page.js`) | `table.frodds-data-tbl` | Dead. `driver.php` requires a `../common/config.php` that never existed here and references `TroShared` models. Candidate for deletion. |
-| 2 (2021) | `scrape/get-raw.php`, `scrape/parse-raw.php` | Guzzle GET → `scrape/raw/vegas-insider/<league>/<stamp>.html` | `#frodds-imgmap-container` header + `table.frodds-data-tbl` rows → sibling `.json` | Fetch still works. Parser finds nothing: that markup is gone. `admin/weeks/week/bulk-games.php` reads the newest `.json` per league and offers its rows to the admin, so that page is the existing "pick from a list" surface. |
+`scrape/raw/` is git-ignored. On the droplet it holds files stamped daily at 02:00 through 2022-03-25 from the old cron (measured 2026-09-24), carried over by the git cutover.
 
-Generation 2 **did run in production**: the droplet holds `scrape/raw/vegas-insider/{nfl,ncaa}/` files stamped daily at 02:00 through 2022-03-25 and logs in `/home/beanstalk/logs/scrape/` (last written 2022-03-25; an empty `parse.log` from 2023-04-05). So a `beanstalk` cron existed and has been dead since 2022–2023 (measured 2026-09-24).
+Old cron history: a `beanstalk` cron ran `get-raw.php` daily at 02:00 in March 2022 and logged to `/home/beanstalk/logs/scrape/` (last written 2022-03-25; an empty `parse.log` from 2023-04-05). It has been dead since 2022–2023.
 
-## The page today — measured 2026-09-07
+## The page — measured 2026-09-07, re-read 2026-09-25
 
-- URLs unchanged: `https://www.vegasinsider.com/nfl/odds/las-vegas/` and `/college-football/odds/las-vegas/`. Both return 200 to a plain curl with a browser User-Agent. Server-rendered HTML, about 1 MB (NFL) and 3.6 MB (NCAA). **No headless browser needed.**
-- One `<table class="odds-table">` per page. `<thead>` lists the sportsbooks in column order via `<span class="hidden">` text: Open, Bet365, BetMGM, DraftKings, Caesars, FanDuel, HardRock, Fanatics, RiversCasino, **Consensus**. Column order is not guaranteed stable; read the header, do not hardcode indexes.
-- Three `<tbody>` groups per table, keyed by class: `odds-table-spread--0`, `odds-table-total--0`, `odds-table-moneyline--0`. Spread and total are what Pick55 uses.
-- Inside a tbody, each game is a run of rows:
-  - a header row with `td.game-time` containing `<span data-role="localtime" data-value="2026-09-10T00:20:00Z">` — **kickoff in UTC**. The app stores `date`/`time` in US Central (`date_default_timezone_set('America/Chicago')` in `inc/_inc.php`), so convert.
-  - one `tr` per team (away first, then home) with `td.game-team` holding `<a href="/nfl/teams/patriots/" data-abbr="NE">` and the rotation number, followed by one `td.game-odds` per book with `<span class="data-value">+3.5</span>` and `<small class="data-odds">-110</small>`. In the totals tbody the value reads like `o47.5` / `u47.5`.
-- Team identity: the URL slug in the team link is the stable key. `football_teams.vegas_insider_url` exists (measured 2026-09-07 on the dump: 34 NFL + 90 NCAA rows, values like `alabama`, `louisiana-state`) and holds slugs that **still largely match** the new site (measured 2026-09-07 against the fetched pages): NFL 31 of 32 page slugs match a DB row (`commanders` is the exception, the DB row predates the rename); NCAA 61 of the 90 DB rows match a page slug, and the remaining page slugs are mostly schools the pool has never used. So matching on `vegas_insider_url` works; unmatched page slugs get surfaced to the admin rather than blocking.
-- A `--4.5` oddity was observed in a HardRock cell (double minus). Parse defensively: reduce to `[+-]?\d+(\.5)?`.
+- URLs: `https://www.vegasinsider.com/nfl/odds/las-vegas/` and `/college-football/odds/las-vegas/`. Both return 200 to a plain GET with a browser User-Agent (the class sends a Chrome one). Server-rendered HTML, about 0.9 MB (NFL) and 3.2 MB (NCAA) on 2026-09-25. **No headless browser needed.**
+- One `<table class="odds-table">` per page. `<thead>` row 1: `th.game-legend` ("Time") first, then one `th.book-pinup` per sportsbook with the name in `<span class="hidden">`, then a blank `th.book-pinup`. Book order differs per page (NFL on 2026-09-25: Open, Bet365, BetMGM, DraftKings, Caesars, FanDuel, Fanatics, RiversCasino, **Consensus**; NCAA also has HardRock). The parser finds `Consensus` by header text and counts the non-`book-pinup` cells before it to line the index up with `td.game-odds` cells in team rows. Never hardcode a column index.
+- Three `<tbody>` groups, keyed by class: `odds-table-spread--0`, `odds-table-total--0`, `odds-table-moneyline--0`. Spread and total are what Pick55 uses.
+- Inside a tbody each game is a run of four rows: a header row with `td.game-time` holding `<span data-role="localtime" data-value="2026-09-27T17:00:00Z">` (**kickoff in UTC**), then the away team row, the home team row, and a spacer row with no team link. A game already played shows `<span>Final</span>` with no `data-value`; the parser skips those (one on the 2026-09-25 NCAA page).
+- Team rows: `td.game-team` holds `<img alt="Army Black Knights">` (full name) and `<a href="/college-football/teams/army/" data-abbr="ARMY">Army</a>`; the URL slug is the stable key. Then one `td.game-odds` per book with `<span class="data-value">-3.5</span>` and `<small class="data-odds">-110</small>`, plus a trailing `td.game-odds.blank`. In the totals tbody the value reads `o48.5` / `u48.5`. A book with no line shows `N/A`.
+- Oddities seen: `--4.5` (double minus) in a HardRock cell on 2026-09-07. The parser reduces any run of signs to one sign and takes the first number.
 
-## Rebuild plan
+## Parser rules (`VegasInsider::parse`)
+
+- Uses the **Consensus** column only.
+- Kickoff is converted from the page's UTC to `America/Chicago` (the app's timezone; `football_games.date`/`time` are Central wall-clock). Verified 2026-09-25: `2026-09-27T17:00:00Z` → `2026-09-27 12:00:00`.
+- Spread is stored **against the away team** (negative = away favored), which is the app's `football_games.value` convention and exactly what the away row's Consensus cell reads. If the away cell is empty the home cell is negated.
+- *Concept key: `HALF_POINT_LINES`.* Whole-number lines get half a point **added to their magnitude** so no pick can push: spread `-4` → `-4.5`, `+4` → `+4.5`, total `49` → `49.5`. `PK`/`EVEN` → `0.5`. Lines already ending in `.5` are unchanged.
+- Games are keyed by away slug + home slug + UTC kickoff so the spread and total sections merge into one entry. Output is sorted by kickoff.
+
+JSON shape, one object per game (the keys `bulk-games.php` consumed before the rewrite are kept; the rest are new):
+
+```json
+{
+  "date": "2026-09-27", "time": "12:00:00", "kickoff_utc": "2026-09-27T17:00:00Z",
+  "away_team": "bengals", "home_team": "steelers",
+  "away_name": "Cincinnati Bengals", "home_name": "Pittsburgh Steelers",
+  "away_abbr": "CIN", "home_abbr": "PIT",
+  "spread": -3.5, "over-under": 42.5
+}
+```
+
+`spread` or `over-under` is `null` when the Consensus column has no line for it.
+
+Measured 2026-09-25 against fresh fetches: NFL 15 games, NCAA 70 games (71 on the page, one `Final`).
+
+## Team matching — measured 2026-09-25 on the local dump
+
+`football_teams.vegas_insider_url` is the match key (34 NFL + 90 NCAA rows; no schema change). Against the 2026-09-25 pages:
+
+- NFL: 29 of 30 page slugs match; the miss is `commanders` (row 29 still carries `redskins`). The owner fixes it on the team edit page `admin/teams/team/index.php?id=29`.
+- NCAA: 57 of 140 page slugs match. Many misses are schools the pool never uses, but these DB rows carry a slug the site no longer uses and will stay unmatched until edited in the admin UI: `texas-austin`→`texas` (id 12), `louisiana-state`→`lsu` (2), `southern-california`→`usc` (13), `texas-christian`→`tcu` (17), `california-los-angeles`→`ucla` (19), `pennsylvania-state`→`penn-state` (73), `wisconsin-madison`→`wisconsin` (94), `mississippi`→`ole-miss` (83), `illinois-urbana`→`illinois` (71), `northwestern-university`→`northwestern` (68), `southern-methodist`→`smu` (121), `north-carolina-state`→`nc-state` (59), `miami`→`miami-fl` (62). Rows 111–126 (UAB, UCF, Texas State, UTSA, Tulane, Colorado State, South Florida, Western Kentucky, Central Arkansas, Nevada, New Mexico, Connecticut, Hawaii, San Jose State) have an empty slug. Unmatched page slugs are surfaced to the admin with the page's team name, never hidden.
+
+Slug edits are the owner's, through the admin UI, not a script (owner, 2026-09-25).
+
+## Running it locally
+
+- `php C:\wamp\www\pick55\scrape\get-raw.php nfl` then `php C:\wamp\www\pick55\scrape\parse-raw.php`.
+- The local CLI PHP (7.4.33) shipped with no CA bundle, so HTTPS failed with cURL error 60. Fixed 2026-09-25: the Mozilla bundle is at `C:\php\php7.4.33\extras\ssl\cacert.pem` and `C:\php\php7.4.33\php.ini` sets `curl.cainfo` and `openssl.cafile` to it. The droplet's PHP uses the Ubuntu CA store and needs nothing.
+
+## Rebuild plan — remaining steps
 
 Goal stated by the owner 2026-09-07: lines settle around **Monday 8 pm Central**; the admin should open a page on the site, see the week's scraped games, tick the ones to include, and have them created with spreads and totals filled in.
 
-1. **Scraper** (`scrape/get-raw.php` kept, `parse-raw.php` rewritten): parse `table.odds-table` into the same JSON shape `bulk-games.php` already consumes (`date`, `time`, `away_team`, `home_team`, `spread`, `over-under`) plus `away_abbr`/`home_abbr`, using the Consensus column. The half-point rule from the old parser stays: whole-number lines get `+0.5` so no pick can push.
-2. **Team matching**: match the page slug against `football_teams.vegas_insider_url` (already populated; no schema change). Unmatched slugs are listed on the admin page with the team's page name so the owner can set `vegas_insider_url` on the existing team edit page, `admin/teams/team/index.php`. The known NFL miss is `commanders` (DB row still carries the pre-2022 slug); fix it there via `LIVE_WRITE_GATE` or the admin UI.
-3. **Admin page**: `bulk-games.php` already lists scrape rows against the week; verify it against the new JSON, add checkboxes and a one-click create.
-4. **Cron on the droplet** (owner decision, 2026-09-07): the scrape runs automatically, but **only when a `football_weeks` row exists whose `picks_due_date` is less than 7 days in the future**. One CLI entry point (`scrape/run.php`) checks that condition, exits quietly if it fails, otherwise fetches and parses both leagues. Schedule: Monday 20:15 Central, plus a Tuesday morning retry. Droplet facts that bind it (measured 2026-09-24, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup (measured 2026-09-25) — so the scraper and everything `inc/_inc.php` loads must run under 8.0 as well as under Apache's 7.4, and output goes to `/home/beanstalk/logs/scrape/` which already exists. The old 2022 cron ran `get-raw.php` daily at 02:00.
-5. **Delete `scrape/odds/`** once step 1 lands.
+1. ~~Scraper~~ — done 2026-09-25 (this doc's "What exists").
+2. **`scrape/run.php`**: one CLI entry point for cron. Exits quietly unless a `football_weeks` row has `picks_due_date` within the next 7 days; otherwise fetches and parses both leagues and writes a log line. Runs under PHP 8.0 on the droplet and 7.4 locally.
+3. **Admin page**: `bulk-games.php` lists the newest scrape per league with checkboxes, a matched-team indicator, and a one-click create of the ticked rows into the selected week.
+4. **Cron on the droplet** (owner decision, 2026-09-07): Monday 20:15 Central plus a Tuesday 08:00 retry. Droplet facts that bind it (measured 2026-09-24, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup (measured 2026-09-25) — so the scraper and everything `inc/_inc.php` loads must run under 8.0 as well as under Apache's 7.4, and output goes to `/home/beanstalk/logs/scrape/` which already exists.
+5. **Delete `scrape/odds/`.**
 
 Production state that makes this urgent (measured 2026-09-24): season 18 (2026) has 12 weeks; weeks 1–3 have 14 hand-entered games each, week 4 (`picks_due_date` 2026-09-24) and later have none.
-
-Open questions for the owner live in the session, not here; this doc records decisions once made.
