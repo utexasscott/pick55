@@ -41,7 +41,7 @@ A per-week file lock (`results-<week_id>-lock.lock`) makes concurrent misses wai
 
 `Pick55\Cache` writes serialized PHP arrays to `config('cache_dir')`, defaulting to `<repo>/cache/` (git-ignored, created on first use) and falling back to `<system temp>/pick55-cache` when the repo directory is not writable by the web server. If neither is writable the cache silently becomes a no-op and the page still works, just uncached. Writes are atomic (temp file plus rename). Entries are a few hundred KB for a 118-player week.
 
-Production: Apache runs as `www-data` and the web root is owned by `beanstalk` (measured 2026-09-24), so PHP cannot create `cache/` itself. `scripts/cutover-to-git.sh` creates it owned by `www-data`, mode 775. Until that script has run, the temp-dir fallback applies on the droplet.
+Production: Apache runs as `www-data` and the web root is owned by `beanstalk` (measured 2026-09-24), so PHP cannot create `cache/` itself. `scripts/cutover-to-git.sh` created it owned by `www-data`, mode 775, on 2026-09-25, so the cache lives at `/home/beanstalk/pick55/cache/` in production.
 
 ## The enumeration itself is also cheaper
 
