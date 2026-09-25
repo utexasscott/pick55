@@ -12,7 +12,7 @@ use Pick55\Snippets\GameOptionClass;
 
 class Page
 {
-	const ASSET_VERSION = '2021-09-15';
+	const ASSET_VERSION = '2026-09-25';
 	const STR_UNEXPECTED_ERROR = "Sorry, we have encountered an unexpected error.";
 
 	public $app;

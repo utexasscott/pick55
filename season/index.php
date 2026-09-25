@@ -7,6 +7,7 @@ use Pick55\Alert;
 use Pick55\App;
 use Pick55\Auth;
 use Pick55\Page;
+use Pick55\SeasonHistory;
 use Pick55\Models\Bet;
 use Pick55\Models\Game;
 use Pick55\Models\UsersSeasonsLink;
@@ -59,6 +60,12 @@ $q = DB::table(Bet::getTableName() . ' AS pick')
 foreach ($q->cursor() as $row) {
 	$stats[$row->type] += $row->points;
 	$stats[$row->bet_type] += $row->points;
+}
+
+$history = SeasonHistory::forUser($me->id);
+$total_winnings = 0;
+foreach ($history as $h) {
+	$total_winnings += $h['winnings'];
 }
 
 ob_start();
@@ -119,7 +126,16 @@ ob_start();
 	<div class="card mb-3">
 		<h4 class="card-header">My Season</h4>
 		<div class="table-responsive">
-			<table class="table table-sm table-striped">
+			<table class="table table-sm table-striped table-my-season">
+				<colgroup>
+					<col class="c-week-num">
+					<col class="c-week-link">
+					<col class="c-rank">
+					<col class="c-pts">
+					<?php foreach (range(1, 10) as $i): ?>
+						<col class="c-pick">
+					<?php endforeach; ?>
+				</colgroup>
 				<thead>
 					<tr class="text-center">
 						<th rowspan="2" colspan="2">Week</th>
@@ -193,6 +209,60 @@ ob_start();
 					<canvas id="chart_points_by_type" style="max-height: 200px;"></canvas>
 				</div>
 			</div>
+		</div>
+	</div>
+
+	<div class="card mb-3">
+		<h4 class="card-header">Seasons</h4>
+		<div class="table-responsive">
+			<table class="table table-sm table-striped">
+				<thead>
+					<tr class="text-center">
+						<th class="text-start">Season</th>
+						<th>Players</th>
+						<th>Finish</th>
+						<th>Best Week</th>
+						<th>Winnings</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ($history as $season_id => $h): ?>
+						<tr class="text-center <?=$season_id == $season->id ? 'bg-me' : ''?>">
+							<td class="text-start fw-bold">
+								<a href="index.php?id=<?=$season_id?>"><?=$h['season']->name?></a>
+							</td>
+							<td><?=$h['players']?></td>
+							<td>
+								<?php if ($h['finish']): ?>
+									<a href="standings.php?id=<?=$season_id?>" class="text-decoration-none">
+										<?=RankSnippet::build(['rank' => $h['finish']])?>
+									</a>
+									<?php if ($h['season']->is_active): ?>
+										<small class="text-muted">so far</small>
+									<?php endif; ?>
+								<?php endif; ?>
+							</td>
+							<td>
+								<?php if ($h['best_week_rank']): ?>
+									<?=RankSnippet::build(['rank' => $h['best_week_rank']])?>
+									<small class="text-muted">Week <?=$h['best_week_num']?></small>
+								<?php endif; ?>
+							</td>
+							<td><?=$h['winnings'] > 0 ? '$' . round($h['winnings']) : ''?></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+				<tfoot>
+					<tr class="text-center fw-bold bg-light2">
+						<td class="text-start">Totals</td>
+						<td colspan="3"><?=sizeof($history)?> season<?=sizeof($history) == 1 ? '' : 's'?></td>
+						<td>$<?=round($total_winnings)?></td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+		<div class="card-footer text-muted small">
+			Finish and Best Week count regular-season weeks only (no playoffs).
 		</div>
 	</div>
 </div>

@@ -145,6 +145,17 @@ body {
 .td-auto2 {
 	color: rgba(0, 0, 0, 0.8);
 }
+/* My Season table (season/index.php): fixed layout plus <col> widths so the
+   ten pick columns stay the same width whatever icon, "?" or colspan text
+   sits in them. */
+.table-my-season {
+	table-layout: fixed;
+}
+.table-my-season col.c-week-num { width: 40px; }
+.table-my-season col.c-week-link { width: 90px; }
+.table-my-season col.c-rank { width: 50px; }
+.table-my-season col.c-pts { width: 45px; }
+.table-my-season col.c-pick { width: 38px; }
 .small-names {
 	font-size: 12px;
 	line-height: 1.1;
