@@ -9,6 +9,7 @@ use Pick55\Page;
 use Pick55\Models\Season;
 use Pick55\Models\WeekFormat;
 use Pick55\Models\WeekFormatPayout;
+use Pick55\Models\WeekWinner;
 
 Auth::guardAdmin();
 
@@ -360,6 +361,24 @@ $active_season = Season::getActive();
 $active_size = $active_season ? (int) $active_season->getNumPlayers() : 0;
 $default_size = intval(get('num_players')) ?: $active_size;
 
+// A format is locked once winnings have been recorded for any week that
+// uses it (owner, 2026-09-25): its rules are history and can only be copied.
+$weeks_using = [];
+$weeks_paid = [];
+if ($format) {
+	$paid_week_ids = WeekWinner::whereIn('week_id', $format->weeks->pluck('id')->all())
+		->distinct()
+		->pluck('week_id')
+		->all();
+	foreach ($format->weeks as $week) {
+		$weeks_using[] = $week;
+		if (in_array($week->id, $paid_week_ids)) {
+			$weeks_paid[] = $week;
+		}
+	}
+}
+$locked = sizeof($weeks_paid) > 0;
+
 $page = new Page;
 $page->setTitle(($format ? 'Format #' . $format->id : 'Create Format') . ' - Formats - Admin');
 $page->options['admin_bar']['show'] = true;
@@ -386,6 +405,9 @@ if (is_post()) {
 			redir('admin/formats/index.php?num_players=' . $num_players);
 		}
 		elseif ($action == 'save' || $action == 'save-as-new') {
+			if ($action == 'save' && $locked) {
+				throw new Exception("This format is locked because winnings have been recorded for a week that uses it. Use \"Save as new format\" instead.");
+			}
 			$form = format_form_from_post($_POST);
 			try {
 				$parsed = format_form_validate($form);
@@ -436,17 +458,6 @@ if ($form === null) {
 	$form = $format ? format_form_from_format($format) : format_form_defaults($default_size);
 }
 
-// Weeks using this format, and those whose results are already visible
-$weeks_using = [];
-$weeks_visible = [];
-if ($format) {
-	foreach ($format->weeks as $week) {
-		$weeks_using[] = $week;
-		if ($week->canSeeResults()) {
-			$weeks_visible[] = $week;
-		}
-	}
-}
 $week_label = function ($week) {
 	return 'Week ' . $week->week_num . ' &ndash; ' . h($week->season ? $week->season->name : 'Season #' . $week->football_season_id);
 };
@@ -459,20 +470,21 @@ if ((int) $form['num_players'] >= 2) {
 ob_start();
 ?>
 <div class="container py-4">
-	<?php if (sizeof($weeks_visible)): ?>
-		<div class="alert alert-warning">
-			<strong>Changing payouts rewrites history</strong> for:
-			<?php foreach ($weeks_visible as $i => $week): ?><?=$i ? ', ' : ''?><a class="alert-link" href="../../weeks/week/index.php?id=<?=$week->id?>"><?=$week_label($week)?></a><?php endforeach; ?>.
-			Their results pages are calculated from this format. To use different rules for an upcoming week, use <em>Save as new format</em> and assign the new format to that week instead.
+	<?php if ($locked): ?>
+		<div class="alert alert-info">
+			<strong>This format is locked.</strong> Winnings have been recorded for
+			<?php foreach ($weeks_paid as $i => $week): ?><?=$i ? ', ' : ''?><a class="alert-link" href="../../weeks/week/index.php?id=<?=$week->id?>"><?=$week_label($week)?></a><?php endforeach; ?>,
+			so its rules are history. To use different rules for an upcoming week, use <em>Save as new format</em> and assign the copy to that week.
 		</div>
 	<?php endif; ?>
 
 	<form action="" method="post" id="format-form" autocomplete="off">
 		<div class="card">
 			<h4 class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-				<span><?=$format ? 'Format #' . $format->id : 'Create Format'?></span>
+				<span><?=$format ? 'Format #' . $format->id : 'Create Format'?><?=$locked ? ' <span class="badge bg-secondary align-middle">locked</span>' : ''?></span>
 				<a class="btn btn-sm btn-outline-secondary" href="../index.php?num_players=<?=(int) $form['num_players']?>">Back to list</a>
 			</h4>
+			<fieldset id="format-fields" <?=$locked ? 'disabled' : ''?>>
 			<div class="card-body">
 				<div class="row g-3 mb-3">
 					<div class="col-sm-4 col-lg-2">
@@ -604,10 +616,13 @@ ob_start();
 					</div>
 				</div>
 			</div>
+			</fieldset>
 			<div class="card-footer d-flex flex-wrap gap-2">
-				<button type="submit" class="btn btn-primary" name="action" value="save"><?=$format ? 'Save Changes' : 'Create Format'?></button>
+				<?php if (!$locked): ?>
+					<button type="submit" class="btn btn-primary" name="action" value="save"><?=$format ? 'Save Changes' : 'Create Format'?></button>
+				<?php endif; ?>
 				<?php if ($format): ?>
-					<button type="submit" class="btn btn-outline-primary" name="action" value="save-as-new" title="Insert a copy with these values and leave this format as it is">Save as new format</button>
+					<button type="submit" class="btn <?=$locked ? 'btn-primary' : 'btn-outline-primary'?>" name="action" value="save-as-new" id="save-as-new" title="Insert a copy with these values and leave this format as it is">Save as new format</button>
 					<?php if (!sizeof($weeks_using)): ?>
 						<button type="submit" class="btn btn-outline-danger ms-auto" name="action" value="delete" data-confirm>Delete</button>
 					<?php endif; ?>
@@ -627,7 +642,9 @@ ob_start();
 						<?php foreach ($weeks_using as $week): ?>
 							<li>
 								<a href="../../weeks/week/index.php?id=<?=$week->id?>"><?=$week_label($week)?></a>
-								<?php if ($week->canSeeResults()): ?>
+								<?php if (in_array($week, $weeks_paid, true)): ?>
+									<span class="badge bg-secondary">winnings recorded</span>
+								<?php elseif ($week->canSeeResults()): ?>
 									<span class="badge bg-warning text-dark">results visible</span>
 								<?php endif; ?>
 							</li>
@@ -1020,6 +1037,12 @@ var FORMAT_FORM = <?=json_encode($form, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_A
 		e.preventDefault();
 		totalManual = false;
 		refresh();
+	});
+
+	// A locked format's fields are in a disabled fieldset; "Save as new"
+	// still needs their values, so lift the lock as the form submits.
+	$('#save-as-new').on('click', function () {
+		$('#format-fields').prop('disabled', false);
 	});
 
 	// ---- initial rows ----

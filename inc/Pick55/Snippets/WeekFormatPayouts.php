@@ -6,8 +6,9 @@ use Pick55\Models\WeekFormat;
 use Pick55\Models\WeekFormatPayout;
 
 /**
- * A format's payout table, as a small HTML table (default) or one line of
- * text ("Overall: 1st $150, 2nd $100. Each pool: 1st $65, 2nd $18.").
+ * A format's payout table, as a horizontal HTML table of three rows
+ * (group, place, amount; one column per payout row, total last) or one
+ * line of text ("Overall: 1st $150, 2nd $100. Each pool: 1st $65, 2nd $18.").
  */
 class WeekFormatPayouts extends Snippet
 {
@@ -54,34 +55,49 @@ class WeekFormatPayouts extends Snippet
 			return implode('. ', $parts) . '.';
 		}
 
+		$show_total = $params['show_total'] && $format->total_payout > 0;
 		ob_start();
 		?>
-		<table class="table table-sm table-borderless mb-0 w-auto">
-			<?php foreach ($groups as $label => $rows): ?>
-				<tr>
-					<th colspan="2" class="pt-2"><?=$label?></th>
-				</tr>
-				<?php foreach ($rows as $row): ?>
+		<div class="table-responsive">
+			<table class="table table-sm table-bordered text-center mb-0 w-auto payouts-table">
+				<thead>
 					<tr>
-						<td class="text-nowrap ps-3"><?=$row->getPlaceLabel()?></td>
-						<td class="text-nowrap text-end"><?=$row->getAmountLabel()?></td>
+						<?php foreach ($groups as $label => $rows): ?>
+							<th colspan="<?=sizeof($rows)?>"><?=$label?></th>
+						<?php endforeach; ?>
+						<?php if ($show_total): ?>
+							<th rowspan="2" class="align-middle">Total</th>
+						<?php endif; ?>
 					</tr>
-				<?php endforeach; ?>
-			<?php endforeach; ?>
-			<?php if ($params['show_total'] && $format->total_payout > 0): ?>
-				<tr class="border-top">
-					<th>Total</th>
-					<th class="text-end">$<?=WeekFormatPayout::money($format->total_payout)?></th>
-				</tr>
-			<?php endif; ?>
-		</table>
+					<tr class="small fw-normal text-muted">
+						<?php foreach ($groups as $rows): ?>
+							<?php foreach ($rows as $row): ?>
+								<th class="fw-normal text-nowrap"><?=$row->getPlaceLabel()?></th>
+							<?php endforeach; ?>
+						<?php endforeach; ?>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<?php foreach ($groups as $rows): ?>
+							<?php foreach ($rows as $row): ?>
+								<td class="text-nowrap"><?=$row->getAmountLabel()?></td>
+							<?php endforeach; ?>
+						<?php endforeach; ?>
+						<?php if ($show_total): ?>
+							<td class="text-nowrap fw-bold">$<?=WeekFormatPayout::money($format->total_payout)?></td>
+						<?php endif; ?>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 		<?php
 		return ob_get_clean();
 	}
 
 	/**
 	 * Payout rows grouped under a heading: "Overall", "Each pool" (or
-	 * "Each team"), "Pool 1" ...
+	 * "Each team member"), "Pool 1" ...
 	 *
 	 * @param WeekFormat $format
 	 * @return array label => list of WeekFormatPayout
