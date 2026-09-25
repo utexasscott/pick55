@@ -10,6 +10,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - **`er_users` is off limits to Claude's DB account.** It holds names and emails. (`PII_TABLE_EXCLUDED`)
 - **Subagents are welcome** whenever the main session's full context is not needed for a task.
 - **Commands handed to the owner are PowerShell, with absolute paths, no placeholders** (owner, 2026-09-07). Claude's own shell work also goes through PowerShell; one command per call, multi-step work goes in a script file.
+- **Hand-over commands are numbered steps in the order they must run, in one block per step, with a one-line "what this does" and "wait for" note where a later step depends on an earlier one.** When a deploy depends on a migration, the migration step comes first and the push/deploy step says so explicitly. Never end a turn with the push command alone when a change file is pending. (owner, 2026-09-25, after a push deployed code that queried columns the schema file had not yet added.) (`ORDERED_HANDOVER`)
 - **Secrets never enter the repo.** `inc/_config.php` and anything with a credential stay git-ignored. The repo is public.
 
 ## Concepts
@@ -20,6 +21,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | `LIVE_WRITE_GATE` | A production write runs only after its exact SQL was shown and the owner gave a go in a later turn. |
 | `PII_TABLE_EXCLUDED` | `er_users` (names, emails) is excluded from Claude's production grant; ids come from the owner. |
 | `HALF_POINT_LINES` | Every spread and total stored on a game ends in .5 so a pick can never push. |
+| `ORDERED_HANDOVER` | Commands for the owner are numbered steps in dependency order; a migration step precedes the push/deploy step that needs it. |
 
 ## Where the answer lives
 
