@@ -1,13 +1,11 @@
 # Dependencies
 /vendor/
-/scrape/odds/node_modules/
 
 # Local environment config (copy from inc/_config.example.php)
 /inc/_config.php
 
 # Scraper output
 /scrape/raw/
-/scrape/odds/pages/**/*.html
 
 # Legacy SVN metadata
 .svn/

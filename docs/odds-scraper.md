@@ -11,7 +11,8 @@
 | Parse CLI | `scrape/parse-raw.php [--all] [file.html]` | Parses stored pages into sibling `.json`. No arguments: every `.html` without a `.json`. `--all`: re-parse everything. A file argument: that file, always re-parsed. |
 | Cron CLI | `scrape/run.php [--check\|--force]` | The scheduled entry point. Queries `football_weeks` for a row with `picks_due_date` after now and less than 7 days ahead; with none it exits 0 silently. With one it fetches and parses both leagues and prints one timestamped log line per league (`week #229 (season 18 week 4, picks due …): NFL 15 games -> …json`). A failed league is logged as `FAILED` and sets exit status 1; the other league still runs. `--check` prints the decision and fetches nothing; `--force` skips the week check. Verified 2026-09-25 locally under PHP 7.4 (fetch, parse, log lines). |
 | Admin page | `admin/weeks/week/bulk-games.php?week_id=N` ("Games from Scrape", linked from the week settings page while the week has no games) | See "The admin page" below. |
-| Dead generation | `scrape/odds/*` (2019, Puppeteer + `table.frodds-data-tbl`) | Deletion pending, see plan. |
+
+The 2019 generation (`scrape/odds/`: Puppeteer page grabber, `table.frodds-data-tbl` parser, a `driver.php` that required a `../common/config.php` that never existed here) was deleted 2026-09-25. It is in git history before that date if ever needed.
 
 `scrape/raw/` is git-ignored. On the droplet it holds files stamped daily at 02:00 through 2022-03-25 from the old cron (measured 2026-09-24), carried over by the git cutover.
 
@@ -85,6 +86,6 @@ Goal stated by the owner 2026-09-07: lines settle around **Monday 8 pm Central**
 2. ~~`scrape/run.php`~~ — done 2026-09-25 (see "What exists"). Its PHP 8.0 run on the droplet is unverified until the first cron firing; the code uses nothing newer than 7.4 syntax and only `dom`, `curl`, `mysqli`, which 8.0 there has.
 3. ~~Admin page~~ — done 2026-09-25 (see "The admin page").
 4. **Cron on the droplet** (owner decision, 2026-09-07): Monday 20:15 Central plus a Tuesday 08:00 retry. Droplet facts that bind it (measured 2026-09-24, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup (measured 2026-09-25) — so the scraper and everything `inc/_inc.php` loads must run under 8.0 as well as under Apache's 7.4, and output goes to `/home/beanstalk/logs/scrape/` which already exists.
-5. **Delete `scrape/odds/`.**
+5. ~~Delete `scrape/odds/`~~ — done 2026-09-25.
 
 Production state that makes this urgent (measured 2026-09-24): season 18 (2026) has 12 weeks; weeks 1–3 have 14 hand-entered games each, week 4 (`picks_due_date` 2026-09-24) and later have none.
