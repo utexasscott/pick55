@@ -442,12 +442,3 @@ a.link-muted:hover {
 .ck-game-on {
 	background-color: #afceaf;
 }
-.ck-game:hover {
-	cursor: pointer;
-}
-.ck-game-off:hover {
-	background-color: #ffffd8;
-}
-.ck-game-on {
-	background-color: #afceaf;
-}
