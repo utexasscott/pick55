@@ -14,7 +14,8 @@ class Season extends BaseModel
 
 	public function weeks()
 	{
-		return $this->hasMany(Week::class, 'football_season_id');
+		return $this->hasMany(Week::class, 'football_season_id')
+			->orderBy('week_num');
 	}
 
 	/**

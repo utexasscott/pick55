@@ -58,7 +58,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - Helpers in `inc/funcs.php`: `get()`, `post()`, `input()`, `is_post()`, `redir($rel_path)`, `config('dot.key')`, `now()`, `ago()`, `ordinal()`, `sel()`.
 - Links are built with `$page->link('rel/path.php')` off `config('base_url')`.
 - Flash messages via `Alert::success|error|warning|info()`; rendered by `Page::renderAlerts()`.
-- Season/week resolution: `App::get()->getSeason()` (query `?id=`, else active, else latest). Week state is computed from `picks_due_date` and first game datetime (`Week::canPick()`, `canSeeResults()`).
+- Season/week resolution: `App::get()->getSeason()` (query `?id=`, else active, else latest). `Season::weeks()` is ordered by `week_num` ascending; callers that loop it (`Week::getActive()`, `Week::getNext()`, the season page) rely on that, since weeks are inserted by hand in any id order. Week state is computed from `picks_due_date` and first game datetime (`Week::canPick()`, `canSeeResults()`).
 - Bump `Page::ASSET_VERSION` when changing `static/css/global.css` or `static/js/global.js` (cache-busting).
 - Picks: each bet has `option` ('0' none, '1'/'2' sides, '3' guaranteed-correct) and a `multiplier` (confidence 0–10; each of 1–10 may be used once per week).
 - A week's rules (name, pools, playoff flag, payouts) come from its `WeekFormat` via `Week::getName()`, `getNumPools()`, `getNumWinners($pool_num)`, `getMinScoreThreshold($pool_num)`, `isPlayoffs()`. `football_weeks` has no rule columns of its own any more (dropped 2026-09-25).
