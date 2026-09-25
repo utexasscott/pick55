@@ -62,9 +62,21 @@ The seed, [`db/changes/2026-09-25-week-formats-seed.sql`](../db/changes/2026-09-
 
 Cross-check: the computed `total_payout` equals the sum actually paid for every finished week except 2018 week 7 (a tie for 1st was paid $90 + $90 instead of the $130/$21 split, $29 over) and 2019 week 5 (a $250 split pot rounded to $249). Result: 96 formats, 331 payout rows, 197 weeks assigned, none left null.
 
-## Admin page
+## Admin pages (Admin > Formats)
 
-*Written after the page landed; see the section below the change list.*
+`admin/formats/index.php` lists the formats filtered by league size (`?num_players=N`; default the active season's `getNumPlayers()`; `?num_players=all` clears). Each row shows pools or teams, a playoff badge with "top N advance", the one-line payout table, the total, and links to every week using the format. "New format" opens the create page pre-filled with that league size. The admin bar has a "Formats" button; the admin week page links "All formats", "New format" and "Edit this format" from its format select.
+
+`admin/formats/format/index.php` creates (`?num_players=N`) or edits (`?id=N`) one format:
+
+- league size, name, one-line description;
+- week type: regular, or playoff with an optional "players advancing" (knock-out round; blank for the money round);
+- grouping: one group, pools or teams, with the pool count and a live "N pools of M players" hint;
+- an **Overall payouts** table and, when pools are on, a **Pool payouts** table whose rows each apply to "Every pool" or to one specific pool. A row pays places from–to ("and below" makes it open-ended) and/or anyone at or above a points threshold, as a per-player amount or a split pot (whole dollars);
+- **Total payout**, kept in sync by JavaScript with a port of `WeekFormat::computeTotalPayout()` plus "≈ $X per player" and a plain-text preview; typing overrides it, "recalculate" restores the formula, blank on save stores the computed value.
+
+Saving validates server-side (name; size ≥ 2; pool count 2..size; places ≥ 1; no overlapping place ranges and at most one open-ended row per group, where a group is the overall rows, the every-pool rows, or one specific pool's rows; exactly one of per-player / split pot per row; advancing 1..size−1) and rewrites the payout rows (insert the new ones, then delete the old by id; the tables are MyISAM so the transaction is a formality). A validation error redirects back with the submitted form restored from `$_SESSION['pick55']['format_form']`, the way `Alert` carries flash messages. **Save as new format** inserts a copy from the submitted values; **Delete** is offered only when no week uses the format. Editing a format whose weeks already have visible results shows a warning listing those weeks, because results pages are calculated from the format; the recommended path is Save as new and assign the copy to the upcoming week.
+
+POST field names: `action` (`save` | `save-as-new` | `delete`), `num_players`, `name`, `description_long`, `is_playoffs`, `advance`, `grouping` (`one` | `pools` | `teams`), `num_pools`, `total_payout`, and rows as `overall[i][…]` / `pool[i][…]` with `min_place`, `max_place`, `open`, `min_points`, `mode` (`per` | `split`), `payout`, `total_payout`, plus `pool_num` on pool rows. `place_type` is derived on the server (`team` when grouping is teams). Verified 2026-09-25 by CLI harness (create, edit with a threshold row, save-as-new with an override total, overlap rejection with form restore, delete guard); the browser-side toggles were checked by parsing and by running the pure JS functions, not by clicking.
 
 ## Applying the change to production
 

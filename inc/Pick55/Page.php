@@ -264,6 +264,12 @@ class Page
 						['admin/games/index.php?show=all', 'All'],
 					];
 					break;
+				case 'formats':
+					$sub_links = [
+						['admin/formats/index.php', 'List'],
+						['admin/formats/format/index.php', 'Create'],
+					];
+					break;
 			}
 		}
 		ob_start();
@@ -278,6 +284,7 @@ class Page
 							['admin/weeks/week/index.php?next=1', 'Next Week'],
 							['admin/games/index.php', 'Games'],
 							['admin/teams/index.php', 'Teams'],
+							['admin/formats/index.php', 'Formats'],
 						] as $link): ?>
 							<a class="btn btn-sm btn-outline-light" href="<?=$this->link($link[0])?>"><?=$link[1]?></a>
 						<?php endforeach; ?>
