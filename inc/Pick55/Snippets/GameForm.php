@@ -132,7 +132,7 @@ class GameForm
 			<dd><a href="../../seasons/season/index.php?id=<?=$season->id?>"><?=$season->name?></a></dd>
 
 			<dt>Week</dt>
-			<dd><a href="../../weeks/week/index.php?id=<?=$week->id?>">Week <?=$week->week_num?> - <?=$week->description?></a></dd>
+			<dd><a href="../../weeks/week/index.php?id=<?=$week->id?>">Week <?=$week->week_num?> - <?=$week->getName()?></a></dd>
 
 			<dt>Games Finalized At</dt>
 			<dd><?=ifempty(DateTimeDisplay::b($week->picks_due_date), 'TBD')?></dd>

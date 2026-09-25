@@ -7,6 +7,7 @@ use Pick55\App;
 use Pick55\Auth;
 use Pick55\Page;
 use Pick55\Models\Season;
+use Pick55\Snippets\WeekFormatPayouts;
 
 $season = Season::getActive();
 if (!$season) {
@@ -104,118 +105,61 @@ ob_start();
 		</div>
 	</div>
 
-	<?php if ($num_playoff_weeks): ?>
-		<div class="card mb-3">
-			<h4 class="card-header">Weeks</h4>
-			<div class="card-body">
-				<p>This table is based on a 50 player pool. <!--The weekly pool sizes and payouts will vary depending on the actual number of players who join.--></p>
-				<div class="table-responsive">
-					<table class="table table-striped table-sm">
-						<thead>
+	<div class="card mb-3">
+		<h4 class="card-header">Weeks</h4>
+		<div class="card-body">
+			<p>Each week has a format that sets its pools and payouts. A player receives the single largest payout they qualify for; an overall payout outranks a pool payout.</p>
+			<div class="table-responsive">
+				<table class="table table-striped table-sm">
+					<thead>
+						<tr class="text-center">
+							<th>Week</th>
+							<th>Format</th>
+							<th>Pools</th>
+							<th>Payouts</th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						$weeks_by_num = [];
+						foreach ($season->weeks as $week) {
+							$weeks_by_num[(int) $week->week_num] = $week;
+						}
+						foreach (range(1, $season->num_weeks + $season->playoff_weeks) as $week_num):
+							$week = isset($weeks_by_num[$week_num]) ? $weeks_by_num[$week_num] : null;
+							$format = $week ? $week->getFormat() : null;
+							$payouts_html = $format ? WeekFormatPayouts::b($format) : '';
+							?>
 							<tr class="text-center">
-								<th>Week</th>
-								<th>Game<br><em>Description</em></th>
-								<th># Pools</th>
-								<th>Pool Winner</th>
-								<th>Overall Winner</th>
+								<td class="text-nowrap">Week <?=$week_num?></td>
+								<?php if (!$format): ?>
+									<td colspan="3">TBD</td>
+								<?php else: ?>
+									<td>
+										<span class="fw-bold"><?=$week->getName()?></span>
+										<?php if (strlen($week->getDescriptionLong())): ?>
+											<br><em><?=$week->getDescriptionLong()?></em>
+										<?php endif; ?>
+									</td>
+									<td><?=$week->getNumPools() ? $week->getNumPools() : '&mdash;'?></td>
+									<td class="text-start">
+										<?php if ($format->is_playoffs && $format->advance): ?>
+											<div>Top <?=$format->advance?> advance</div>
+										<?php endif; ?>
+										<?php if (strlen($payouts_html)): ?>
+											<?=$payouts_html?>
+										<?php elseif (!($format->is_playoffs && $format->advance)): ?>
+											&mdash;
+										<?php endif; ?>
+									</td>
+								<?php endif; ?>
 							</tr>
-						</thead>
-						<tbody>
-							<?php
-							foreach (range(1, $num_regular_weeks) as $week_num):
-								$week = $season->weeks()
-									->where('week_num', '=', $week_num)
-									->first();
-								?>
-								<tr class="text-center">
-									<td>Week <?=$week_num?></td>
-									<td><?=$week ? $week->description . '<br><em>' . $week->description_long . '</em>' : 'TBD'?></td>
-									<td><?=$week ? $week->num_pools : 'TBD'?></td>
-									<td>$<?=$week ? $week->pool_winner : 'TBD'?></td>
-									<td>$<?=$week ? (sprintf('%0.2f', $week->weekly_bonus + $week->pool_winner)) : 'TBD'?></td>
-								</tr>
-							<?php endforeach; ?>
-							<tr class="text-center">
-								<td>Week 11</td>
-								<td>Playoffs - <span class="fw-bold">Knock-Out Round</span></td>
-								<td colspan="4">Top 20 players advance to Money Round</td>
-							</tr>
-							<tr class="text-center">
-								<td>Week 12</td>
-								<td>Playoffs - <span class="fw-bold">Money Round</span></td>
-								<td colspan="2">
-									<table>
-										<tr>
-											<th colspan="2"><u>Finalists Pool</u></th>
-										</tr>
-										<tr>
-											<th>1st place</th>
-											<td>$240</td>
-										</tr>
-										<tr>
-											<th>2nd place</th>
-											<td>$140</td>
-										</tr>
-										<tr>
-											<th>3rd place</th>
-											<td>$110</td>
-										</tr>
-										<tr>
-											<th>4th place</th>
-											<td>$90</td>
-										</tr>
-										<tr>
-											<th>5th place</th>
-											<td>$70</td>
-										</tr>
-										<tr>
-											<th>6th place</th>
-											<td>$50</td>
-										</tr>
-										<tr>
-											<th>7th place</th>
-											<td>$40</td>
-										</tr>
-										<tr>
-											<th>8th-9th place</th>
-											<td>$30</td>
-										</tr>
-										<tr>
-											<th>10th-15th place</th>
-											<td>$20</td>
-										</tr>
-									</table>
-								</td>
-								<td colspan="2">
-									<table>
-										<tr>
-											<th colspan="2"><u>Consolation Pool</u></th>
-										</tr>
-										<tr>
-											<th>1st Pl.</th>
-											<td>$80</td>
-										</tr>
-										<tr>
-											<th>2nd Pl.</th>
-											<td>$40</td>
-										</tr>
-										<tr>
-											<th>3rd Pl.</th>
-											<td>$30</td>
-										</tr>
-										<tr>
-											<th>4th Pl.</th>
-											<td>$20</td>
-										</tr>
-									</table>
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
 			</div>
 		</div>
-	<?php endif; ?>
+	</div>
 
 	<div class="card mb-3">
 		<h4 class="card-header">Game Selection Process</h4>

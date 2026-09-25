@@ -26,12 +26,12 @@ class AdminWeekRow extends Snippet
 			<?php endif; ?>
 			<td class="cell-link fw-bold text-nowrap"><a class="text-center" href="<?=config('base_url')?>admin/weeks/week/index.php?id=<?=$week->id?>">Week <?=$week->week_num?></a></td>
 			<td class="line-height-1">
-				<div><?=$week->description?></div>
-				<?php if ($week->description_long): ?>
-					<small class="text-muted"><?=$week->description_long?></small>
+				<div><?=$week->getName()?></div>
+				<?php if (strlen($week->getDescriptionLong())): ?>
+					<small class="text-muted"><?=$week->getDescriptionLong()?></small>
 				<?php endif; ?>
 			</td>
-			<td class="text-center"><?=$week->num_pools?></td>
+			<td class="text-center"><?=$week->getNumPools() ? $week->getNumPools() : ''?></td>
 			<td class="text-end"><?=ifempty(DateTimeDisplay::b($week->picks_due_date), 'TBD')?></td>
 			<td class="text-end"><?=ifempty(DateTimeDisplay::b($week->getFirstGameAt()), 'TBD')?></td>
 		</tr>

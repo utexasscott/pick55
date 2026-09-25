@@ -25,6 +25,7 @@ $page->options['admin_bar']['title'] = 'Week #' . $week->id;
 $page->options['admin_bar']['sub_bar']['type'] = 'week';
 $page->options['admin_bar']['sub_bar']['obj'] = $week;
 
+$format = $week->getFormat();
 $pools = $week->pools()
 	->orderBy('pool_num', 'ASC')
 	->get();
@@ -176,9 +177,25 @@ if (is_post()) {
 
 			Alert::success("Auto distributed players.");
 		}
-		if (post('action') == 'set-pool-size') {
-			$week->setNumPools(post('num_pools'));
-			Alert::success("Saved number of pools.");
+		if (post('action') == 'sync-pools') {
+			if (!$week->getFormat()) {
+				throw new Exception("This week has no format, so it has no pools.");
+			}
+			$num_before = sizeof($pools);
+			$week->setNumPools();
+			$num_after = $week->pools()->count();
+			if (!$num_after && $num_before) {
+				Alert::success("Removed all pools.");
+			}
+			elseif (!$num_after) {
+				Alert::success("This format has no pools.");
+			}
+			elseif ($num_after == $num_before) {
+				Alert::success("Pools already match the format (" . $num_after . ").");
+			}
+			else {
+				Alert::success("Pools changed from " . $num_before . " to " . $num_after . " to match the format.");
+			}
 		}
 		if (post('action') == 'save-pools') {
 			foreach ($pools as $pool) {
@@ -211,26 +228,33 @@ ob_start();
 	<div class="row">
 		<div class="col-md-6">
 			<form action="" method="post">
-				<input type="hidden" name="action" value="set-pool-size">
+				<input type="hidden" name="action" value="sync-pools">
 				<div class="card mb-3">
 					<h4 class="card-header">Number of Pools</h4>
 					<div class="card-body">
-						<div class="row">
-							<div class="col-auto align-items-center">
-								<label for="num_pools" class="col-form-label">Number of Pools</label>
-							</div>
-							<div class="col-auto">
-								<select id="num_pools" name="num_pools" class="form-select">
-									<option value="0">No Pools</option>
-									<?php foreach (range(1, 12) as $num): ?>
-										<option <?=sel($num, $week->num_pools)?> value="<?=$num?>"><?=$num?></option>
-									<?php endforeach; ?>
-								</select>
-							</div>
-							<div class="col-auto">
-								<button type="submit" class="btn btn-primary btn-block">Save Changes</button>
-							</div>
-						</div>
+						<?php if (!$format): ?>
+							<p class="mb-0">
+								This week has no format, so it has no pools.
+								<a href="index.php?id=<?=$week->id?>">Assign a format</a> first.
+							</p>
+						<?php elseif ($format->hasPools()): ?>
+							<p>
+								Format: <span class="fw-bold"><?=$format->name?></span>
+								&mdash; <?=$format->num_pools?> pools of about <?=$format->getPlayersPerPool()?>.
+								Currently <?=sizeof($pools)?> pool<?=sizeof($pools) == 1 ? '' : 's'?> created.
+							</p>
+							<button type="submit" class="btn btn-primary">Create / sync pools</button>
+						<?php else: ?>
+							<p class="<?=sizeof($pools) ? '' : 'mb-0'?>">
+								Format: <span class="fw-bold"><?=$format->name?></span> &mdash; no pools.
+								<?php if (sizeof($pools)): ?>
+									Currently <?=sizeof($pools)?> pool<?=sizeof($pools) == 1 ? '' : 's'?> created.
+								<?php endif; ?>
+							</p>
+							<?php if (sizeof($pools)): ?>
+								<button type="submit" class="btn btn-danger">Remove pools</button>
+							<?php endif; ?>
+						<?php endif; ?>
 					</div>
 				</div>
 			</form>

@@ -2,13 +2,13 @@
 
 require_once __DIR__ . '/../../../inc/_inc.php';
 
-use Pick55\DB;
 use Pick55\Alert;
 use Pick55\Auth;
 use Pick55\Page;
 use Pick55\Models\Week;
-use Pick55\Models\User;
-use Pick55\Models\UsersSeasonsLink;
+use Pick55\Models\WeekFormat;
+use Pick55\Models\WeekFormatPayout;
+use Pick55\Snippets\WeekFormatPayouts;
 
 Auth::guardAdmin();
 
@@ -27,6 +27,8 @@ $page->options['admin_bar']['title'] = 'Week #' . $week->id;
 $page->options['admin_bar']['sub_bar']['type'] = 'week';
 $page->options['admin_bar']['sub_bar']['obj'] = $week;
 
+$num_players = $week->season->getNumPlayers();
+
 if (is_post()) {
 	try {
 		if (post('action') == 'save') {
@@ -42,17 +44,19 @@ if (is_post()) {
 				throw new Exception("Week num #" . $new_week_num . " already exists for that season.");
 			}
 			$week->week_num = $new_week_num;
-			$week->weekly_bonus = post('weekly_bonus') - post('pool_winner');
-			$week->pool_winner = post('pool_winner');
-			$week->num_winners = post('num_winners');
-			if (is_numeric(trim(post('min_score_threshold')))) {
-				$week->min_score_threshold = post('min_score_threshold');
+
+			$format_id = intval(post('football_week_format_id', 0));
+			$format = null;
+			if ($format_id) {
+				$format = WeekFormat::find($format_id);
+				if (!$format) {
+					throw new Exception("Unknown format.");
+				}
 			}
-			else {
-				$week->min_score_threshold = 0;
-			}
-			$week->description = trim(post('description'));
-			$week->description_long = trim(post('description_long'));
+			$format_changed = intval($week->football_week_format_id) != $format_id;
+			$week->football_week_format_id = $format_id ? $format_id : null;
+			$week->setRelation('format', $format);
+
 			$ts = strtotime(post('games_finalized_at_date') . ' ' . post('games_finalized_at_time'));
 			if (!$ts) {
 				$week->picks_due_date = null;
@@ -62,6 +66,19 @@ if (is_post()) {
 			}
 			$week->save();
 			Alert::success("Saved changes.");
+
+			// Keep the football_pools rows in step with the new format, but
+			// only when pools were already set up for this week.
+			if ($format_changed) {
+				$num_before = $week->pools()->count();
+				if ($num_before) {
+					$week->setNumPools();
+					$num_after = $week->pools()->count();
+					if ($num_after != $num_before) {
+						Alert::info("Pools changed from " . $num_before . " to " . $num_after . " to match the format.");
+					}
+				}
+			}
 		}
 		elseif (post('action') == 'set-guaranteed-points') {
 			$week->setGuaranteedPoints();
@@ -73,6 +90,39 @@ if (is_post()) {
 	}
 	redir();
 }
+
+$format = $week->getFormat();
+$format_id = $format ? (int) $format->id : 0;
+
+// Formats for the select: the season's player count first, then the rest
+// grouped by their own player count.
+$format_groups = [];
+foreach (WeekFormat::getListForSelect($num_players) as $f) {
+	if ((int) $f->num_players == (int) $num_players) {
+		$label = 'For ' . $num_players . ' players';
+	}
+	else {
+		$label = 'Other: ' . $f->num_players . ' players';
+	}
+	$format_groups[$label][] = $f;
+}
+
+$num_pools_created = $week->pools()->count();
+
+ob_start();
+?>
+<script>
+$(document).ready(function() {
+	$('#football_week_format_id').change(function() {
+		var id = $(this).val();
+		$('.format-details').addClass('d-none');
+		$('.format-details[data-format-id="' + id + '"]').removeClass('d-none');
+		$('#format-none').toggleClass('d-none', id !== '');
+	});
+});
+</script>
+<?php
+$page->setScripts(ob_get_clean());
 
 ob_start();
 ?>
@@ -91,10 +141,15 @@ ob_start();
 
 				<dl>
 					<dt>Season</dt>
-					<dd><a href="../../seasons/season/index.php?id=<?=$week->season->id?>"><?=$week->season->name?></a></dd>
+					<dd><a href="../../seasons/season/index.php?id=<?=$week->season->id?>"><?=$week->season->name?></a> (<?=$num_players?> players)</dd>
 
 					<dt><a href="pools.php?id=<?=$week->id?>">Pools</a></dt>
-					<dd><?=$week->num_pools ? $week->num_pools : 'N/A'?></dd>
+					<dd>
+						<?=$week->getNumPools() ? $week->getNumPools() : 'N/A'?>
+						<?php if ($num_pools_created != $week->getNumPools()): ?>
+							<span class="text-danger">(<?=$num_pools_created?> created)</span>
+						<?php endif; ?>
+					</dd>
 				</dl>
 
 				<hr>
@@ -108,30 +163,6 @@ ob_start();
 							<?php endforeach; ?>
 						</select>
 					</div>
-				<div class="row mb-3">
-					<div class="col-lg-3 col-sm-4">
-						<label for="num_winners" class="form-label">Winners Per Pool</label>
-						<input type="text" class="form-control" name="num_winners" id="num_winners" value="<?=$week->num_winners?>">
-					</div>
-					<div class="col-lg-3 col-sm-4">
-						<label for="min_score_threshold" class="form-label">Score Threshold</label>
-						<input type="text" class="form-control" name="min_score_threshold" id="min_score_threshold" value="<?=$week->min_score_threshold?>">
-					</div>
-				</div>
-					<div class="col-lg-3 col-sm-4">
-						<label for="pool_winner" class="form-label">Pool Winner</label>
-						<div class="input-group">
-							<span class="input-group-text">$</span>
-							<input type="text" class="form-control" name="pool_winner" id="pool_winner" value="<?=$week->pool_winner?>">
-						</div>
-					</div>
-					<div class="col-lg-3 col-sm-4">
-						<label for="weekly_bonus" class="form-label">Overall Winner</label>
-						<div class="input-group">
-							<span class="input-group-text">$</span>
-							<input type="text" class="form-control" name="weekly_bonus" id="weekly_bonus" value="<?=$week->weekly_bonus+$week->pool_winner?>">
-						</div>
-					</div>
 				</div>
 				<div class="row mb-3">
 					<div class="col-lg-6 col-mg-8 col-sm-10">
@@ -142,14 +173,42 @@ ob_start();
 						</div>
 					</div>
 				</div>
-				<div class="mb-3">
-					<label for="description" class="form-label">Description</label>
-					<input type="text" class="form-control" name="description" id="description" value="<?=$week->description?>">
+				<div class="row mb-3">
+					<div class="col-lg-6 col-md-8 col-sm-10">
+						<label for="football_week_format_id" class="form-label">Format</label>
+						<select id="football_week_format_id" name="football_week_format_id" class="form-select">
+							<option value="">&mdash; no format &mdash;</option>
+							<?php foreach ($format_groups as $label => $formats): ?>
+								<optgroup label="<?=htmlspecialchars($label)?>">
+									<?php foreach ($formats as $f): ?>
+										<option <?=sel($f->id, $format_id)?> value="<?=$f->id?>"><?=htmlspecialchars($f->name)?> &mdash; <?=$f->num_players?> players, $<?=WeekFormatPayout::money($f->total_payout)?><?=$f->is_playoffs ? ' (playoffs)' : ''?></option>
+									<?php endforeach; ?>
+								</optgroup>
+							<?php endforeach; ?>
+						</select>
+						<div class="form-text">
+							<a href="<?=$page->link('admin/formats/index.php')?>">All formats</a>
+							&middot;
+							<a href="<?=$page->link('admin/formats/format/index.php?num_players=' . $num_players)?>">New format</a>
+						</div>
+					</div>
 				</div>
-				<div class="mb-3">
-					<label for="description_long" class="form-label">Extended Description</label>
-					<input type="text" class="form-control" name="description_long" id="description_long" value="<?=$week->description_long?>">
-				</div>
+
+				<div id="format-none" class="text-muted fst-italic <?=$format_id ? 'd-none' : ''?>">No format assigned.</div>
+				<?php foreach ($format_groups as $label => $formats): ?>
+					<?php foreach ($formats as $f): ?>
+						<div class="format-details <?=$f->id == $format_id ? '' : 'd-none'?>" data-format-id="<?=$f->id?>">
+							<?php if (strlen($f->description_long)): ?>
+								<p><?=$f->description_long?></p>
+							<?php endif; ?>
+							<?=WeekFormatPayouts::b($f)?>
+							<?php if ($f->is_playoffs && $f->advance): ?>
+								<p class="mb-0">Top <?=$f->advance?> advance.</p>
+							<?php endif; ?>
+							<p class="mb-0"><a href="<?=$page->link('admin/formats/format/index.php?id=' . $f->id)?>">Edit this format</a></p>
+						</div>
+					<?php endforeach; ?>
+				<?php endforeach; ?>
 			</div>
 			<div class="card-footer">
 				<button type="submit" class="btn btn-primary btn-block">Save Changes</button>

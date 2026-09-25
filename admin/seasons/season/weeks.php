@@ -51,7 +51,7 @@ ob_start();
 					<tr class="text-center">
 						<th class="text-end">ID</th>
 						<th>Week</th>
-						<th>Description</th>
+						<th>Format</th>
 						<th class="text-center">Pools</th>
 						<th class="text-end">Games Finalized At</th>
 						<th class="text-end">Picks Due At</th>

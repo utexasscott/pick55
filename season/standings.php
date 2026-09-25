@@ -12,6 +12,7 @@ use Pick55\Models\Game;
 use Pick55\Models\Season;
 use Pick55\Models\UsersSeasonsLink;
 use Pick55\Models\Week;
+use Pick55\Models\WeekFormat;
 use Pick55\Models\WeekWinner;
 use Pick55\Snippets\Rank as RankSnippet;
 use Pick55\Snippets\Score as ScoreSnippet;
@@ -121,6 +122,7 @@ foreach ($users as $user) {
 	$q = DB::table(Bet::getTableName() . ' AS bet')
 		->leftJoin(Game::getTableName() . ' AS game', 'bet.football_game_id', '=', 'game.id')
 		->leftJoin(Week::getTableName() . ' AS week', 'game.football_week_id', '=', 'week.id')
+		->leftJoin(WeekFormat::getTableName() . ' AS fmt', 'week.football_week_format_id', '=', 'fmt.id')
 		->select([
 			'bet.option',
 			'bet.multiplier',
@@ -132,7 +134,8 @@ foreach ($users as $user) {
 		->where('game.correct_option', '!=', '0')
 		->where('bet.user_id', '=', $user->id)
 		->where('week.football_season_id', '=', $season->id)
-		->where('week.is_playoffs', '=', false);
+		// A week without a format counts as regular season.
+		->whereRaw('(fmt.is_playoffs = 0 OR fmt.id IS NULL)');
 	foreach ($q->cursor() as $row) {
 		$s['bets']++;
 		if (!array_key_exists($row->week_id, $s['score_by_week_id'])) {

@@ -17,6 +17,7 @@ use Pick55\Models\WeekWinner;
 use Pick55\Snippets\GameOptionCell;
 use Pick55\Snippets\Rank as RankSnippet;
 use Pick55\Snippets\DateTimeDisplay;
+use Pick55\Snippets\WeekFormatPayouts;
 
 Auth::guard();
 
@@ -104,6 +105,7 @@ if (is_post()) {
 $pools = [];
 $map_pool_id_to_user_ids = [];
 $my_pool_id = null;
+$selected_pool_id = null;
 $q = PoolsUsersLink::where('week_id', '=', $week->id)
 	->whereIn('er_user_id', array_keys($users));
 foreach ($q->cursor() as $link) {
@@ -140,9 +142,19 @@ foreach ($_GET as $k => $v) {
 	}
 }
 
+// The paying places and point threshold come from the week's format and
+// depend on which pool is being viewed (null = the overall view).
+$format = $week->getFormat();
+$selected_pool_num = null;
+if ($selected_pool_id) {
+	$selected_pool_num = (int) $pools[$selected_pool_id]->pool_num;
+}
+$num_winners = $week->getNumWinners($selected_pool_num);
+$threshold = $week->getMinScoreThreshold($selected_pool_num);
+
 // Scores, ranks and win probabilities: computed once per change to the
-// week's games/bets/settings and cached (see docs/results-cache.md).
-$results = WeekResults::get($week, $focus_user_ids, $what_ifs_by_game_id);
+// week's games/bets/format and cached (see docs/results-cache.md).
+$results = WeekResults::get($week, $focus_user_ids, $what_ifs_by_game_id, $selected_pool_num);
 $stats_by_user_id = $results['stats_by_user_id'];
 $bets_by_game_id = $results['bets_by_game_id'];
 $unknown_game_ids = $results['unknown_game_ids'];
@@ -189,6 +201,19 @@ ob_start();
 		</div>
 	<?php endif; ?>
 
+	<?php if ($format): ?>
+		<div class="card mb-3">
+			<h4 class="card-header">Payouts</h4>
+			<div class="card-body">
+				<div class="fw-bold"><?=$week->getName()?></div>
+				<?php if (strlen($week->getDescriptionLong())): ?>
+					<div class="text-muted"><?=$week->getDescriptionLong()?></div>
+				<?php endif; ?>
+				<?=WeekFormatPayouts::b($format)?>
+			</div>
+		</div>
+	<?php endif; ?>
+
 	<?php if (sizeof($what_ifs_by_game_id)): ?>
 		<p class="fst-italic">Results shown with <?=sizeof($what_ifs_by_game_id)?> "what if" game(s). <a href="?id=<?=$week->id?>">Reset what ifs</a>.</p>
 	<?php endif; ?>
@@ -201,7 +226,12 @@ ob_start();
 				<table class="table table-sm table-striped table-sortable">
 					<thead>
 						<tr class="text-center">
-							<th colspan="100%"><?=$week->description_long?></th>
+							<th colspan="100%">
+								<?=$week->getName()?>
+								<?php if (strlen($week->getDescriptionLong())): ?>
+									<small class="fw-normal text-muted">&mdash; <?=$week->getDescriptionLong()?></small>
+								<?php endif; ?>
+							</th>
 						</tr>
 						<tr class="text-center">
 							<th data-sort="int">#</th>
@@ -209,23 +239,23 @@ ob_start();
 							<th data-sort="int" data-sort-default="desc">Pts</th>
 							<th data-sort="int" data-sort-default="desc">&check;</th>
 							<?php if ($show_probabilities): ?>
-								<?php if ($week->num_winners == 1 || (sizeof($pools) > 1 && !$selected_pool_id)): ?>
+								<?php if ($num_winners == 1 || (sizeof($pools) > 1 && !$selected_pool_id)): ?>
 									<th class="text-end" data-sort="float" data-sort-default="desc">1st</th>
 								<?php else: ?>
-									<?php if ($week->min_score_threshold): ?>
-										<th class="text-end" data-sort="float" data-sort-default="desc">Top <?=$week->num_winners?> or ≥<?=$week->min_score_threshold?></th>
+									<?php if ($threshold): ?>
+										<th class="text-end" data-sort="float" data-sort-default="desc">Top <?=$num_winners?> or ≥<?=$threshold?></th>
 									<?php endif; ?>
-									<?php if (!$week->min_score_threshold): ?>
-										<?php if ($week->num_winners < 10): ?>
-											<?php foreach (range(1, $week->num_winners) as $rank): ?>
+									<?php if (!$threshold): ?>
+										<?php if ($num_winners < 10): ?>
+											<?php foreach (range(1, $num_winners) as $rank): ?>
 												<th class="text-end" data-sort="float" data-sort-default="desc"><?=ordinal($rank)?></th>
 											<?php endforeach; ?>
 										<?php endif; ?>
 									<?php endif; ?>
-									<th class="text-end" data-sort="float" data-sort-default="desc">Top <?=$week->num_winners?></th>
+									<th class="text-end" data-sort="float" data-sort-default="desc">Top <?=$num_winners?></th>
 								<?php endif; ?>
-								<?php if ($week->min_score_threshold): ?>
-									<th class="text-end" data-sort="float" data-sort-default="desc">≥<?=$week->min_score_threshold?></th>
+								<?php if ($threshold): ?>
+									<th class="text-end" data-sort="float" data-sort-default="desc">≥<?=$threshold?></th>
 									<th class="text-end" data-sort="float" data-sort-default="desc">1st</th>
 								<?php endif; ?>
 							<?php endif; ?>
@@ -248,23 +278,23 @@ ob_start();
 								<td><?=$stats['points']?></td>
 								<td><?=$stats['right']?></td>
 								<?php if ($show_probabilities): ?>
-									<?php if ($week->num_winners == 1 || (sizeof($pools) > 1 && !$selected_pool_id)) : ?>
+									<?php if ($num_winners == 1 || (sizeof($pools) > 1 && !$selected_pool_id)) : ?>
 										<?php $val = round($stats['prediction_ranks_pct']['r1'], 1); ?>
 										<td class="text-end col_winpct2" data-sort-value="<?=$val?>">
 											<?php if ($val > 0) printf("%01.1f", $val); ?>
 										</td>
 									<?php else: ?>
-										<?php foreach (range(1, $week->num_winners) as $rank): ?>
+										<?php foreach (range(1, $num_winners) as $rank): ?>
 											<?php $val = round($stats['prediction_ranks_pct']['r' . $rank], 1); ?>
-											<?php if ($week->num_winners < 10): ?>
-												<?php if (!$week->min_score_threshold): ?>
+											<?php if ($num_winners < 10): ?>
+												<?php if (!$threshold): ?>
 													<td class="text-end col_placepct" data-sort-value="<?=$val?>">
 														<?php if ($val > 0) printf("%01.1f", $val); ?>
 													</td>
 												<?php endif; ?>
 											<?php endif; ?>
 										<?php endforeach; ?>
-										<?php if ($week->min_score_threshold): ?>
+										<?php if ($threshold): ?>
 											<?php $val = round($stats['either_threshold_pct'], 1); ?>
 											<td class="text-end col_toppct" data-sort-value="<?=$val?>">
 												<?php if ($val > 0) printf("%01.1f", $val); ?>
@@ -275,7 +305,7 @@ ob_start();
 											<?php if ($top_val > 0) printf("%01.1f", $top_val); ?>
 										</td>
 									<?php endif; ?>
-									<?php if ($week->min_score_threshold): ?>
+									<?php if ($threshold): ?>
 										<?php $val = round($stats['prediction_gte_threshold_pct'], 1); ?>
 										<td class="text-end col_gte_pct" data-sort-value="<?=$val?>">
 											<?php if ($val > 0) printf("%01.1f", $val); ?>

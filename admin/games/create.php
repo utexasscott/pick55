@@ -125,7 +125,7 @@ ob_start();
 					<label for="week_id" class="form-label">Week</label>
 					<select id="week_id" name="week_id" class="form-select w-auto">
 						<?php foreach ($weeks as $week): ?>
-							<option value="<?=$week->id?>"><?=!$week->canCreateGames() ? '(FINALIZED) ' : ''?>Week <?=$week->week_num?> - <?=$week->description?></option>
+							<option value="<?=$week->id?>"><?=!$week->canCreateGames() ? '(FINALIZED) ' : ''?>Week <?=$week->week_num?> - <?=$week->getName()?></option>
 						<?php endforeach; ?>
 					</select>
 				</div>

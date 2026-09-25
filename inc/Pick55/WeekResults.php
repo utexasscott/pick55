@@ -10,9 +10,10 @@ use Pick55\Models\Week;
  * "what if" win-probability enumeration over every undecided game.
  *
  * Results are cached (see Cache). The cache key carries a fingerprint of the
- * week's games, bets, and settings, so any score update, pick change, or week
- * edit produces a new key and the stale entry is swept. No invalidation hooks
- * are needed anywhere else.
+ * week's games, bets, and format (its id, the selected pool and its payout
+ * rows), so any score update, pick change, or format edit produces a new key
+ * and the stale entry is swept. No invalidation hooks are needed anywhere
+ * else.
  */
 class WeekResults
 {
@@ -25,9 +26,10 @@ class WeekResults
 	 * @param Week $week
 	 * @param array $focus_user_ids
 	 * @param array $what_ifs_by_game_id  game_id => '1' | '2'
+	 * @param int|null $pool_num  the selected pool's pool_num, null for the overall view
 	 * @return array see compute()
 	 */
-	public static function get(Week $week, array $focus_user_ids, array $what_ifs_by_game_id = [])
+	public static function get(Week $week, array $focus_user_ids, array $what_ifs_by_game_id = [], $pool_num = null)
 	{
 		$focus_user_ids = array_values(array_unique(array_map('intval', $focus_user_ids)));
 		sort($focus_user_ids);
@@ -36,14 +38,15 @@ class WeekResults
 			$what_ifs[(int) $game_id] = (string) $option;
 		}
 		ksort($what_ifs);
+		$pool_num = $pool_num === null ? null : (int) $pool_num;
 
-		$fp = self::fingerprint($week);
+		$fp = self::fingerprint($week, $pool_num);
 		$variant = md5(json_encode([$focus_user_ids, $what_ifs]));
 		$prefix = 'results-' . $week->id . '-';
 		$key = $prefix . $fp . '-' . $variant;
 
-		return Cache::remember($key, $prefix . 'lock', function () use ($week, $focus_user_ids, $what_ifs, $prefix, $fp) {
-			$results = self::compute($week, $focus_user_ids, $what_ifs);
+		return Cache::remember($key, $prefix . 'lock', function () use ($week, $focus_user_ids, $what_ifs, $pool_num, $prefix, $fp) {
+			$results = self::compute($week, $focus_user_ids, $what_ifs, $pool_num);
 			// Drop entries built from an older fingerprint of this week.
 			Cache::forgetPrefix($prefix, $prefix . $fp . '-');
 			return $results;
@@ -53,12 +56,15 @@ class WeekResults
 	/**
 	 * A short hash of every stored value that can change the results: the
 	 * week's games (score, teams, kickoff), every bet on those games, and the
-	 * week's winner settings. Two cheap aggregate queries.
+	 * week's format (its id, the selected pool number, and the format's payout
+	 * rows, which decide the paying places and point threshold). Three cheap
+	 * aggregate queries.
 	 *
 	 * @param Week $week
+	 * @param int|null $pool_num
 	 * @return string
 	 */
-	public static function fingerprint(Week $week)
+	public static function fingerprint(Week $week, $pool_num = null)
 	{
 		$games = DB::table('football_games')
 			->where('football_week_id', '=', $week->id)
@@ -77,10 +83,20 @@ class WeekResults
 				IFNULL(SUM(CRC32(CONCAT_WS('|', b.id, b.user_id, b.option, b.multiplier))), 0) AS s
 			")
 			->first();
+		$format_id = (int) $week->football_week_format_id;
+		$payouts = DB::table('football_week_format_payouts')
+			->where('football_week_format_id', '=', $format_id)
+			->selectRaw("
+				COUNT(*) AS n,
+				IFNULL(BIT_XOR(CRC32(CONCAT_WS('|', id, place_type, IFNULL(pool_num, ''), min_place, IFNULL(max_place, ''), IFNULL(min_points, ''), IFNULL(payout, ''), IFNULL(total_payout, '')))), 0) AS x,
+				IFNULL(SUM(CRC32(CONCAT_WS('|', id, place_type, IFNULL(pool_num, ''), min_place, IFNULL(max_place, ''), IFNULL(min_points, ''), IFNULL(payout, ''), IFNULL(total_payout, '')))), 0) AS s
+			")
+			->first();
 		return substr(md5(json_encode([
-			'v1',
-			(int) $week->num_winners,
-			(int) $week->min_score_threshold,
+			'v2',
+			$format_id,
+			$pool_num === null ? null : (int) $pool_num,
+			(int) $payouts->n, (string) $payouts->x, (string) $payouts->s,
 			(int) $games->n, (string) $games->x, (string) $games->s,
 			(int) $bets->n, (string) $bets->x, (string) $bets->s,
 		])), 0, 16);
@@ -92,6 +108,7 @@ class WeekResults
 	 * @param Week $week
 	 * @param array $focus_user_ids
 	 * @param array $what_ifs_by_game_id
+	 * @param int|null $pool_num  the selected pool's pool_num, null for the overall view
 	 * @return array [
 	 *   'games' => list of football_games attribute arrays, kickoff order,
 	 *   'bets_by_game_id' => game_id => list of ['id','user_id','option','multiplier'] for focus users,
@@ -100,10 +117,10 @@ class WeekResults
 	 *   'show_auto_column' => bool,
 	 * ]
 	 */
-	public static function compute(Week $week, array $focus_user_ids, array $what_ifs_by_game_id = [])
+	public static function compute(Week $week, array $focus_user_ids, array $what_ifs_by_game_id = [], $pool_num = null)
 	{
-		$num_winners = (int) $week->num_winners;
-		$threshold = (int) $week->min_score_threshold;
+		$num_winners = (int) $week->getNumWinners($pool_num);
+		$threshold = (int) $week->getMinScoreThreshold($pool_num);
 
 		$stats_base = [
 			'user_id' => null,

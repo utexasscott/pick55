@@ -145,7 +145,7 @@ ob_start();
 								<?php endif; ?>
 							</td>
 							<?php if ($week->canUserPick($me->id)): ?>
-								<td colspan="6"><?=$week->description?></td>
+								<td colspan="6"><?=$week->getName()?></td>
 								<td colspan="6">Picks due <?=DateTimeDisplay::b($week->getFirstGameAt())?></td>
 							<?php elseif ($week->canUserSeeResults($me->id)): ?>
 								<td>
@@ -170,7 +170,7 @@ ob_start();
 									<?php endif; ?>
 								<?php endforeach; ?>
 							<?php elseif ($week->getPicksAvailableAt()): ?>
-								<td colspan="6"><?=$week->description?></td>
+								<td colspan="6"><?=$week->getName()?></td>
 								<td colspan="6">Picks available <?=DateTimeDisplay::b($week->getPicksAvailableAt())?></td>
 							<?php else: ?>
 								<td colspan="10" class="fts-italic">TBD</td>

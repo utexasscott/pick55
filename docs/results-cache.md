@@ -7,7 +7,7 @@
 For one week and one set of players (every season player, or the members of one pool when a pool is selected), the page shows:
 
 - each player's points, correct count and competition rank from the decided games (`football_games.correct_option` is `1` or `2`);
-- for every still-undecided game, the "what if" enumeration: every one of the 2^n possible outcomes is scored and ranked, and each player's share of outcomes that leave them in 1st .. `num_winners` place (and, when `min_score_threshold` is set, at or above the threshold) is shown as a percentage;
+- for every still-undecided game, the "what if" enumeration: every one of the 2^n possible outcomes is scored and ranked, and each player's share of outcomes that leave them in 1st .. N place (and, when the format has a point threshold, at or above it) is shown as a percentage. N and the threshold come from the week's format via `Week::getNumWinners($pool_num)` / `Week::getMinScoreThreshold($pool_num)`, where `$pool_num` is the selected pool's `pool_num` (null for the overall view), so a format whose pool rows differ from its overall rows gives different columns per pool;
 - the per-game cells listing who picked which side at which multiplier.
 
 The enumeration is the cost. Measured locally on 2026-09-12 with the week 232 shape (14 games, 118 players): with all 14 games undecided the old page took 8.4 s of CPU, of which SQL was 0.1 s across 421 queries; with 4 undecided it took 0.2 s. The production droplet is slower than the workstation, so the live page took correspondingly longer on a Saturday morning before any score was entered.
@@ -21,7 +21,7 @@ The enumeration is the cost. Measured locally on 2026-09-12 with the week 232 sh
 | File cache primitive | `inc/Pick55/Cache.php` |
 | Per-game pick cells | `inc/Pick55/Snippets/GameOptionCell.php` (accepts preloaded `players` and `picks`) |
 
-`WeekResults::get($week, $focus_user_ids, $what_ifs_by_game_id)` returns one array: the games (attribute arrays, kickoff order), the focus users' bets grouped by game, the sorted and ranked stats keyed `u<user_id>`, the undecided game ids, and the prediction count. The page hydrates `Game` models from the attribute arrays and adds winnings (edited on the page itself, so kept out of the cache) before rendering.
+`WeekResults::get($week, $focus_user_ids, $what_ifs_by_game_id, $pool_num)` returns one array: the games (attribute arrays, kickoff order), the focus users' bets grouped by game, the sorted and ranked stats keyed `u<user_id>`, the undecided game ids, and the prediction count. The page hydrates `Game` models from the attribute arrays and adds winnings (edited on the page itself, so kept out of the cache) before rendering.
 
 ## How the cache is invalidated: by fingerprint, not by hooks
 
@@ -29,9 +29,9 @@ The owner's requirement (2026-09-12) was "run the queries once each time a score
 
 - `football_games` for the week: count plus `BIT_XOR` and `SUM` of `CRC32(id | correct_option | date | time | title | option_1 | option_2)`;
 - `football_bets` on those games: count plus `BIT_XOR` and `SUM` of `CRC32(id | user_id | option | multiplier)`;
-- the week's `num_winners` and `min_score_threshold`.
+- the week's format: `football_weeks.football_week_format_id`, the `$pool_num` being viewed, and the format's `football_week_format_payouts` rows (count plus `BIT_XOR` and `SUM` of `CRC32(id | place_type | pool_num | min_place | max_place | min_points | payout | total_payout)`), which decide the paying places and point threshold. A `'v2'` version tag is hashed in too, so changing what the fingerprint covers invalidates every older entry.
 
-Two aggregate queries, both index-driven, run on every request. Any score update, pick change or week edit yields a different fingerprint, so the next request misses, recomputes, stores under the new key, and sweeps this week's entries built from older fingerprints. Nothing else in the app knows the cache exists.
+Three aggregate queries, all index-driven, run on every request. Any score update, pick change, format reassignment or payout edit yields a different fingerprint, so the next request misses, recomputes, stores under the new key, and sweeps this week's entries built from older fingerprints. Nothing else in the app knows the cache exists.
 
 Key format: `results-<week_id>-<fingerprint16>-<variant md5>`, where the variant is the sorted focus user ids plus the what-if selection. Every pool view and every what-if combination is its own entry, computed on first view. The winnings form is not part of the key because winnings are added after the cache lookup.
 
@@ -73,7 +73,7 @@ Wall time of the PHP page (CLI harness, excluding Apache), and Eloquent query co
 | 4 undecided games | 0.20 s | 0.09 s | 0.06 s | 411 → 96 |
 | 0 undecided games | 0.21 s | 0.07 s | 0.05 s | 531 → 96 |
 
-Admin viewers run about a dozen more queries (admin bar). The remaining ~96 are the nav bars, auth and pool lookups, and the two fingerprint queries; SQL time is about 0.02 s.
+Admin viewers run about a dozen more queries (admin bar). The remaining ~96 are the nav bars, auth and pool lookups, and the fingerprint queries (two at the time; three since the format-payouts hash was added on 2026-09-25); SQL time is about 0.02 s.
 
 Through local Apache (curl, 14 undecided games, non-admin viewer): cache miss 0.60 s, cache hit 0.15 s, a new what-if variant 0.25 s. The HTTP output was byte-identical to the CLI harness output for the same scenario.
 
