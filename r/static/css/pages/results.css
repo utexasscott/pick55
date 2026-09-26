@@ -718,7 +718,7 @@
 }
 
 html:not(.js) .page-results .game-more,
-html:not(.js) .page-results .pv-foot {
+html:not(.js) .page-results .fold-foot {
 	display: none;
 }
 
@@ -833,21 +833,21 @@ html:not(.js) .page-results .pv-foot {
 	background: color-mix(in srgb, var(--bad-soft) 55%, var(--bg-elev));
 }
 
-.js .page-results .pv.is-collapsed tr.is-extra {
+.js .page-results [data-fold].is-collapsed tr.is-extra {
 	display: none;
 }
 
-.page-results .pv-foot {
+.page-results .fold-foot {
 	text-align: center;
 }
 
-.page-results .pv-foot .icon {
+.page-results .fold-foot .icon {
 	width: 16px;
 	height: 16px;
 	transition: transform var(--dur-2) var(--ease);
 }
 
-.page-results .pv:not(.is-collapsed) .pv-foot .icon {
+.page-results [data-fold]:not(.is-collapsed) .fold-foot .icon {
 	transform: rotate(180deg);
 }
 

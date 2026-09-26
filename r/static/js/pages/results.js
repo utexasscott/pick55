@@ -187,15 +187,16 @@
 				}
 				return;
 			}
-			var pv = e.target.closest('[data-pv-toggle]');
-			if (pv) {
-				var sec = pv.closest('[data-pv]');
+			// Standings and the point-value grid: top rows plus me until expanded.
+			var fold = e.target.closest('[data-fold-toggle]');
+			if (fold) {
+				var sec = fold.closest('[data-fold]');
 				var collapsed = !sec.classList.contains('is-collapsed');
 				sec.classList.toggle('is-collapsed', collapsed);
-				pv.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-				var s = pv.querySelector('span');
+				fold.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+				var s = fold.querySelector('span');
 				if (s) {
-					s.textContent = pv.getAttribute(collapsed ? 'data-more-text' : 'data-less-text');
+					s.textContent = fold.getAttribute(collapsed ? 'data-more-text' : 'data-less-text');
 				}
 				return;
 			}
@@ -452,11 +453,28 @@
 					}
 				}
 			});
-			// Rows follow their new rank when the table is in rank order.
+			// Rows follow their new rank when the table is in rank order, and
+			// the collapsed view keeps showing the top rows (plus me).
 			var sort = currentSort();
 			if (rankChanged && sort && sort.th.classList.contains('c-rank') && sort.dir === 'ascending') {
 				applySort(sort.th, 'ascending');
+				refold();
 			}
+		}
+
+		/** Re-mark the standings' hidden rows from the current row order. */
+		function refold() {
+			var sec = table ? table.closest('[data-fold]') : null;
+			if (!sec || !tbody) {
+				return;
+			}
+			var shown = parseInt(sec.getAttribute('data-fold-rows'), 10);
+			if (!(shown > 0) || !$('.is-extra', tbody)) {
+				return;
+			}
+			Array.prototype.forEach.call(tbody.rows, function (row, i) {
+				row.classList.toggle('is-extra', i >= shown && !row.classList.contains('row-me'));
+			});
 		}
 
 		function paintStatus(data) {

@@ -34,7 +34,11 @@ use Pick55\Snippets\WeekFormatPayouts;
 Shell::guard();
 
 const RESULTS_PICKERS_SHOWN = 5;
+// Standings and the point-value grid show this many rows (plus the viewer)
+// until expanded, unless the list is at most RESULTS_GRID_FULL players, in
+// which case every row shows and there is nothing to expand.
 const RESULTS_GRID_ROWS = 10;
+const RESULTS_GRID_FULL = 15;
 const RESULTS_CHART_PLAYERS = 5;
 
 $shell = new Shell;
@@ -183,6 +187,9 @@ $format = $week->getFormat();
 $num_winners = $week->getNumWinners($selected_pool_num);
 $threshold = $week->getMinScoreThreshold($selected_pool_num);
 $stats_by_user_id = $results['stats_by_user_id'];
+// Rows shown before "Show all": every row for a small list, else the top ten
+// (the viewer's row is never hidden).
+$grid_rows = sizeof($stats_by_user_id) <= RESULTS_GRID_FULL ? sizeof($stats_by_user_id) : RESULTS_GRID_ROWS;
 $bets_by_game_id = $results['bets_by_game_id'];
 $num_predictions = $results['num_predictions'];
 $show_auto_column = $results['show_auto_column'];
@@ -786,7 +793,7 @@ ob_start();
 	<?php endif; ?>
 
 	<div class="res-layout">
-		<section class="card card-flush standings enter" style="--i: 2" aria-labelledby="st-title" data-standings>
+		<section class="card card-flush standings is-collapsed enter" style="--i: 2" aria-labelledby="st-title" data-standings data-fold data-fold-rows="<?=(int) $grid_rows?>">
 			<div class="card-head">
 				<h2 class="card-title" id="st-title">Standings</h2>
 				<span class="faint small"><?=sizeof($stats_by_user_id)?> players<?=$selected_pool_id ? ' &middot; ' . h($pools[$selected_pool_id]->name) : ''?><?=sizeof($active_what_ifs) ? ' &middot; with what-ifs' : ''?></span>
@@ -814,17 +821,22 @@ ob_start();
 						</tr>
 					</thead>
 					<tbody>
-						<?php $i = 0; ?>
+						<?php $i = 0; $st_hidden_rows = 0; ?>
 						<?php foreach ($stats_by_user_id as $u_user_id => $stats): ?>
 							<?php
 							$uid = (int) substr($u_user_id, 1);
 							$is_me = $uid === $my_id;
 							$is_friend = isset($friends[$uid]);
+							$is_extra = $i >= $grid_rows && !$is_me;
+							if ($is_extra) {
+								$st_hidden_rows++;
+							}
 							$exp = isset($expected_by_user_id[$uid]) ? (float) $expected_by_user_id[$uid] : 0.0;
 							$won = isset($winnings_by_user_id[$uid]) ? (float) $winnings_by_user_id[$uid] : 0.0;
 							$name = $player_name($uid);
+							$rc = trim(($is_me ? 'row-me' : ($is_friend ? 'row-friend' : '')) . ($is_extra ? ' is-extra' : ''));
 							?>
-							<tr class="<?=$is_me ? 'row-me' : ($is_friend ? 'row-friend' : '')?>" data-user="<?=$uid?>" data-i="<?=$i++?>"<?=$is_me ? ' id="st-me"' : ''?>>
+							<tr<?=$rc !== '' ? ' class="' . h($rc) . '"' : ''?> data-user="<?=$uid?>" data-i="<?=$i++?>"<?=$is_me ? ' id="st-me"' : ''?>>
 								<td class="c-rank" data-v="<?=(int) $stats['rank']?>" data-f="rank"><?=$rank_html($stats['rank'])?></td>
 								<td class="c-player" data-v="<?=h(strtolower($name))?>">
 									<span class="player-name"><?=h($name)?></span><?php if ($is_me): ?> <span class="faint small">(you)</span><?php endif; ?><?php if ($is_friend): ?><span class="friend-mark" title="Friend"></span><?php endif; ?>
@@ -850,6 +862,11 @@ ob_start();
 					</tbody>
 				</table>
 			</div>
+			<?php if ($st_hidden_rows): ?>
+				<div class="card-foot fold-foot">
+					<button type="button" class="btn btn-quiet btn-sm" data-fold-toggle aria-expanded="false" data-more-text="Show all <?=sizeof($stats_by_user_id)?> players" data-less-text="Show top <?=RESULTS_GRID_ROWS?>"><?=Icons::svg('chevron-down')?><span>Show all <?=sizeof($stats_by_user_id)?> players</span></button>
+				</div>
+			<?php endif; ?>
 		</section>
 
 		<section class="games enter" style="--i: 3" aria-labelledby="games-title">
@@ -910,7 +927,7 @@ ob_start();
 		</section>
 	</div>
 
-	<section class="card card-flush pv is-collapsed enter" style="--i: 4" aria-labelledby="pv-title" data-pv>
+	<section class="card card-flush pv is-collapsed enter" style="--i: 4" aria-labelledby="pv-title" data-fold data-fold-rows="<?=(int) $grid_rows?>">
 		<div class="card-head">
 			<h2 class="card-title" id="pv-title">Picks by point value</h2>
 			<span class="pv-legend faint small">
@@ -936,7 +953,7 @@ ob_start();
 						<?php
 						$uid = (int) substr($u_user_id, 1);
 						$is_me = $uid === $my_id;
-						$is_extra = $row_num >= RESULTS_GRID_ROWS && !$is_me;
+						$is_extra = $row_num >= $grid_rows && !$is_me;
 						if ($is_extra) {
 							$hidden_rows++;
 						}
@@ -963,8 +980,8 @@ ob_start();
 			</table>
 		</div>
 		<?php if ($hidden_rows): ?>
-			<div class="card-foot pv-foot">
-				<button type="button" class="btn btn-quiet btn-sm" data-pv-toggle aria-expanded="false" data-more-text="Show all <?=sizeof($stats_by_user_id)?> players" data-less-text="Show top <?=RESULTS_GRID_ROWS?>"><?=Icons::svg('chevron-down')?><span>Show all <?=sizeof($stats_by_user_id)?> players</span></button>
+			<div class="card-foot fold-foot">
+				<button type="button" class="btn btn-quiet btn-sm" data-fold-toggle aria-expanded="false" data-more-text="Show all <?=sizeof($stats_by_user_id)?> players" data-less-text="Show top <?=RESULTS_GRID_ROWS?>"><?=Icons::svg('chevron-down')?><span>Show all <?=sizeof($stats_by_user_id)?> players</span></button>
 			</div>
 		<?php endif; ?>
 	</section>
