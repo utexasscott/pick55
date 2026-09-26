@@ -1,0 +1,860 @@
+/*
+ * Make Picks (r/season/week/pick.php). Every rule is scoped under
+ * .page-picks. Tokens only, so both themes come for free.
+ *
+ * The rail of point values and the list of cards are two columns of equal
+ * rows (--pk-h tall, --pk-gap apart), so the rail stays put while cards move.
+ */
+
+.page-picks {
+	--pk-h: 7.75rem;
+	--pk-gap: 8px;
+	--pk-rail-w: 38px;
+	--pk-handle-w: 38px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Header                                                              */
+
+.page-picks .pk-head {
+	align-items: flex-start;
+}
+
+.page-picks .pk-head-text {
+	min-width: 0;
+	max-width: 620px;
+}
+
+.page-picks .pk-head .page-sub {
+	font-size: 0.92rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Layout: summary above the list on phones, a sticky side panel on    */
+/* wide screens                                                         */
+
+.page-picks .pk-layout {
+	display: grid;
+	gap: var(--s-4);
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.page-picks .pk-main {
+	min-width: 0;
+}
+
+.page-picks .pk-summary {
+	position: sticky;
+	top: calc(var(--topbar-h) + env(safe-area-inset-top) + 8px);
+	z-index: 20;
+	min-width: 0;
+}
+
+.page-picks .pk-summary-card {
+	padding: 10px 12px;
+	border-radius: var(--r-3);
+	background: var(--bg-glass);
+	-webkit-backdrop-filter: saturate(1.6) blur(16px);
+	backdrop-filter: saturate(1.6) blur(16px);
+	box-shadow: var(--sh-2);
+}
+
+.page-picks .pk-sum-top {
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+}
+
+.page-picks .pk-ring .progress-ring {
+	width: 56px;
+	height: 56px;
+}
+
+.page-picks .pk-ring-num {
+	font-size: 0.95rem;
+	font-weight: 850;
+	font-stretch: 80%;
+	line-height: 1;
+}
+
+.page-picks .pk-ring-num small {
+	color: var(--fg-faint);
+	font-size: 0.7em;
+	font-weight: 700;
+}
+
+.page-picks .pk-sum-main {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-areas:
+		"due status"
+		"counts counts";
+	align-items: center;
+	gap: 6px var(--s-2);
+}
+
+.page-picks .pk-due {
+	grid-area: due;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	font-weight: 800;
+	font-stretch: 88%;
+	font-size: 1.02rem;
+	white-space: nowrap;
+}
+
+.page-picks .pk-due .icon {
+	width: 16px;
+	height: 16px;
+	color: var(--warn);
+	flex: none;
+}
+
+.page-picks .pk-due-label {
+	color: var(--fg-muted);
+	font-weight: 600;
+	font-stretch: 100%;
+	font-size: 0.85rem;
+}
+
+.page-picks .pk-counts {
+	grid-area: counts;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px var(--s-3);
+	color: var(--fg-muted);
+	font-size: 0.8rem;
+}
+
+.page-picks .pk-counts > span {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	white-space: nowrap;
+}
+
+.page-picks .pk-counts b {
+	color: var(--fg);
+	font-weight: 750;
+}
+
+.page-picks .legend-dot {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex: none;
+}
+
+.page-picks .pk-dot-brand {
+	background: var(--brand);
+}
+
+.page-picks .pk-dot-accent {
+	background: var(--accent);
+}
+
+.page-picks .pk-status {
+	grid-area: status;
+	justify-self: end;
+	min-width: 0;
+}
+
+.page-picks .pk-status .pill {
+	max-width: 100%;
+	transition: background-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+}
+
+.page-picks .pk-status a {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.page-picks .pk-spinner {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	animation: pk-spin 700ms linear infinite;
+	flex: none;
+}
+
+@keyframes pk-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.page-picks .pk-sum-more {
+	display: grid;
+	gap: var(--s-3);
+	margin-top: var(--s-4);
+	padding-top: var(--s-4);
+	border-top: 1px solid var(--line);
+}
+
+.page-picks .pk-sum-guarantee,
+.page-picks .pk-guarantee-note {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	color: var(--accent);
+	font-weight: 600;
+}
+
+.page-picks .pk-sum-guarantee .icon,
+.page-picks .pk-guarantee-note .icon {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	margin-top: 2px;
+}
+
+.page-picks .pk-guarantee-note {
+	margin: 0 0 var(--s-3);
+}
+
+.page-picks .pk-sum-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s-2);
+}
+
+.page-picks kbd {
+	display: inline-block;
+	min-width: 1.6em;
+	padding: 1px 5px;
+	border: 1px solid var(--line-strong);
+	border-bottom-width: 2px;
+	border-radius: 5px;
+	background: var(--bg-elev);
+	color: var(--fg-muted);
+	font-family: var(--font);
+	font-size: 0.78em;
+	font-weight: 700;
+	text-align: center;
+	line-height: 1.4;
+}
+
+.page-picks .pk-foot {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--s-2);
+	margin-top: var(--s-4);
+}
+
+/* Locked (the deadline passed while the page was open) */
+.page-picks .pk-locked {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--s-3) var(--s-4);
+	margin-bottom: var(--s-4);
+	border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+	background: color-mix(in srgb, var(--warn-soft) 60%, var(--bg-elev));
+	animation: enter 480ms var(--ease) both;
+}
+
+.page-picks .pk-locked[hidden] {
+	display: none;
+}
+
+.page-picks .pk-locked-icon {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	background: var(--warn-soft);
+	color: var(--warn);
+	flex: none;
+}
+
+.page-picks .pk-locked-text {
+	display: grid;
+	gap: 2px;
+	flex: 1 1 220px;
+	min-width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Board: the rail and the cards                                        */
+
+.page-picks .pk-board {
+	display: grid;
+	grid-template-columns: var(--pk-rail-w) minmax(0, 1fr);
+	gap: 0 8px;
+	align-items: start;
+}
+
+.page-picks .pk-rail,
+.page-picks .pk-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--pk-gap);
+	min-width: 0;
+}
+
+.page-picks .pk-list {
+	position: relative;
+}
+
+/* Rail slots */
+.page-picks .pk-slot {
+	position: relative;
+	height: var(--pk-h);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	border-radius: var(--r-2);
+	transition: background-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+}
+
+.page-picks .pk-slot::before {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 8px;
+	bottom: 8px;
+	width: 3px;
+	margin-left: -1.5px;
+	border-radius: 3px;
+	background: var(--brand-soft);
+	z-index: -1;
+	opacity: 0;
+}
+
+.page-picks .pk-slot-num {
+	font-size: 1.7rem;
+	font-weight: 900;
+	font-stretch: 72%;
+	line-height: 1;
+	color: var(--fg);
+}
+
+.page-picks .pk-slot-sub {
+	font-size: 0.62rem;
+	font-weight: 750;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--fg-faint);
+}
+
+.page-picks .pk-slot.is-zero .pk-slot-num {
+	color: var(--fg-faint);
+	font-size: 1.3rem;
+}
+
+.page-picks .pk-slot.is-zero {
+	background: repeating-linear-gradient(135deg, transparent 0 5px, var(--bg-hover) 5px 7px);
+}
+
+.page-picks .pk-slot-check {
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background: var(--accent-soft);
+	color: var(--accent);
+}
+
+.page-picks .pk-slot-check .icon {
+	width: 16px;
+	height: 16px;
+}
+
+.page-picks .pk-slot.is-guaranteed .pk-slot-sub {
+	color: var(--accent);
+	font-size: 0.7rem;
+}
+
+.page-picks .pk-slot.is-target {
+	background: var(--brand-soft);
+	transform: scale(1.06);
+}
+
+.page-picks .pk-slot.is-target .pk-slot-num {
+	color: var(--brand-text);
+}
+
+/* Cards */
+.page-picks .pk-card {
+	position: relative;
+	display: flex;
+	height: var(--pk-h);
+	min-width: 0;
+	background: var(--bg-elev);
+	border: 1px solid var(--line);
+	border-radius: var(--r-2);
+	box-shadow: var(--sh-1);
+	transition: background-color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+
+.page-picks .pk-card-body {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	padding: 9px 10px 9px 11px;
+	overflow: hidden;
+}
+
+.page-picks .pk-meta {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	height: 18px;
+	color: var(--fg-muted);
+	font-size: 0.76rem;
+	font-weight: 600;
+}
+
+.page-picks .pk-kick {
+	min-width: 0;
+}
+
+.page-picks .pk-flag-g,
+.page-picks .pk-flag-zero {
+	display: none;
+	margin-left: auto;
+	flex: none;
+}
+
+.page-picks .pk-flag-g {
+	height: 20px;
+	padding: 0 7px;
+	font-size: 0.68rem;
+}
+
+.page-picks .pk-flag-g .icon {
+	width: 12px;
+	height: 12px;
+}
+
+.page-picks .pk-flag-zero {
+	color: var(--fg-faint);
+	font-size: 0.7rem;
+	font-weight: 800;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.page-picks .pk-title {
+	font-size: 0.98rem;
+	font-weight: 750;
+	line-height: 1.25;
+	letter-spacing: -0.005em;
+}
+
+.page-picks .pk-line {
+	margin-left: 4px;
+	color: var(--fg-faint);
+	font-size: 0.82rem;
+	font-weight: 650;
+}
+
+.page-picks .pk-sides {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 8px;
+	margin-top: auto;
+}
+
+/* A side: muted until chosen, then the team's colours (or the O/U colour) */
+.page-picks .pk-side {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-areas:
+		"sw name"
+		"sw line";
+	align-items: center;
+	justify-content: stretch;
+	column-gap: 7px;
+	row-gap: 1px;
+	width: 100%;
+	min-width: 0;
+	height: 2.9rem;
+	padding: 0 10px;
+	text-align: left;
+	cursor: pointer;
+	background: var(--bg-sunken);
+	color: var(--fg);
+	box-shadow: inset 0 0 0 1px var(--line);
+	font-size: 0.86rem;
+	-webkit-tap-highlight-color: transparent;
+	transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+
+.page-picks .pk-side-ou {
+	--team-bg: var(--ou);
+	--team-fg: var(--bg-elev);
+	--team-line: var(--ou);
+}
+
+.page-picks .pk-swatch,
+.page-picks .pk-side-icon {
+	grid-area: sw;
+}
+
+.page-picks .pk-swatch {
+	width: 10px;
+	height: 22px;
+	border-radius: 4px;
+	background: var(--team-bg);
+	box-shadow: inset 0 0 0 2px var(--team-line);
+}
+
+.page-picks .pk-side-icon {
+	width: 16px;
+	height: 16px;
+	color: var(--ou);
+}
+
+.page-picks .pk-side-name {
+	grid-area: name;
+	line-height: 1.15;
+}
+
+.page-picks .pk-side-line {
+	grid-area: line;
+	font-size: 0.74rem;
+	font-weight: 650;
+	color: var(--fg-muted);
+	line-height: 1.1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.page-picks .pk-side:hover {
+		box-shadow: inset 0 0 0 1px var(--line-strong), var(--sh-1);
+	}
+
+	.page-picks .pk-move:hover:not(:disabled),
+	.page-picks .pk-grip:hover {
+		background: var(--bg-hover);
+		color: var(--fg);
+	}
+}
+
+.page-picks .pk-side:active {
+	transform: scale(0.97);
+}
+
+.page-picks .pk-side:focus-visible,
+.page-picks .pk-grip:focus-visible,
+.page-picks .pk-move:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.page-picks .pk-side[aria-pressed="true"] {
+	background: var(--team-bg);
+	color: var(--team-fg);
+	box-shadow: inset 0 0 0 2px var(--team-line), 0 6px 14px -8px var(--team-bg);
+}
+
+.page-picks .pk-side[aria-pressed="true"] .pk-side-line,
+.page-picks .pk-side[aria-pressed="true"] .pk-side-icon {
+	color: inherit;
+	opacity: 0.85;
+}
+
+.page-picks .pk-side[aria-pressed="true"] .pk-swatch {
+	background: var(--team-fg);
+	box-shadow: none;
+	opacity: 0.9;
+}
+
+/* The other side, once one is chosen */
+.page-picks .pk-card.is-picked .pk-side[aria-pressed="false"] {
+	color: var(--fg-muted);
+	background: transparent;
+}
+
+/* Not picked yet: a dashed nudge */
+.page-picks .pk-card:not(.is-picked):not(.is-guaranteed) .pk-side {
+	box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.page-picks .pk-card:not(.is-picked):not(.is-guaranteed) {
+	border-style: dashed;
+	border-color: var(--line-strong);
+}
+
+.page-picks .pk-side.is-pop {
+	animation: pk-pop 280ms var(--ease);
+}
+
+@keyframes pk-pop {
+	0% {
+		transform: scale(0.94);
+	}
+
+	60% {
+		transform: scale(1.03);
+	}
+
+	100% {
+		transform: scale(1);
+	}
+}
+
+/* Handle column: up, grip, down */
+.page-picks .pk-handle {
+	flex: none;
+	width: var(--pk-handle-w);
+	display: flex;
+	flex-direction: column;
+	border-left: 1px solid var(--line);
+}
+
+.page-picks .pk-move,
+.page-picks .pk-grip {
+	display: grid;
+	place-items: center;
+	width: 100%;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--fg-faint);
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.page-picks .pk-move {
+	flex: none;
+	height: 32px;
+}
+
+.page-picks .pk-move:first-child {
+	border-top-right-radius: var(--r-2);
+}
+
+.page-picks .pk-move:last-child {
+	border-bottom-right-radius: var(--r-2);
+}
+
+.page-picks .pk-move .icon {
+	width: 18px;
+	height: 18px;
+}
+
+.page-picks .pk-move:disabled {
+	opacity: 0.25;
+	cursor: default;
+}
+
+/* Only the grip claims touches, so the rest of the card still scrolls. */
+.page-picks .pk-grip {
+	flex: 1 1 auto;
+	min-height: 36px;
+	color: var(--fg-muted);
+	cursor: grab;
+	touch-action: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
+.page-picks .pk-grip .icon {
+	width: 22px;
+	height: 22px;
+}
+
+/* Below the tenth: worth nothing */
+.page-picks .pk-card.is-zero {
+	background: color-mix(in srgb, var(--bg-elev) 55%, var(--bg-sunken));
+	box-shadow: none;
+}
+
+.page-picks .pk-card.is-zero .pk-title {
+	color: var(--fg-muted);
+}
+
+.page-picks .pk-card.is-zero .pk-flag-zero {
+	display: inline;
+}
+
+/* Guaranteed slots (playoffs) */
+.page-picks .pk-card.is-guaranteed {
+	border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+	background: color-mix(in srgb, var(--accent-soft) 45%, var(--bg-elev));
+}
+
+.page-picks .pk-card.is-guaranteed .pk-flag-g {
+	display: inline-flex;
+}
+
+.page-picks .pk-card.is-guaranteed .pk-flag-zero {
+	display: none;
+}
+
+.page-picks .pk-card.is-guaranteed .pk-sides {
+	opacity: 0.7;
+}
+
+/* Dragging */
+.page-picks .pk.is-dragging,
+.page-picks .pk.is-dragging * {
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.page-picks .pk.is-dragging .pk-grip {
+	cursor: grabbing;
+}
+
+.page-picks .pk-list.is-sorting .pk-card:not(.is-lifted) {
+	transition: transform var(--dur-2) var(--ease), background-color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+
+.page-picks .pk-card.is-lifted {
+	z-index: 5;
+	border-color: var(--line-strong);
+	box-shadow: var(--sh-3);
+	transition: box-shadow var(--dur-2) var(--ease);
+}
+
+.page-picks .pk-card.is-lifted .pk-grip {
+	color: var(--brand-text);
+	background: var(--brand-soft);
+}
+
+.page-picks .pk-card.is-settling {
+	z-index: 4;
+}
+
+.page-picks .pk-card.is-moved {
+	animation: pk-moved 900ms var(--ease);
+}
+
+@keyframes pk-moved {
+	0% {
+		box-shadow: 0 0 0 3px var(--brand-soft), var(--sh-2);
+	}
+
+	100% {
+		box-shadow: 0 0 0 3px transparent, var(--sh-1);
+	}
+}
+
+/* Locked */
+.page-picks .pk.is-locked .pk-board {
+	opacity: 0.7;
+}
+
+.page-picks .pk.is-locked .pk-grip,
+.page-picks .pk.is-locked .pk-side {
+	cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
+/* Wider phones and up                                                  */
+
+@media (min-width: 560px) {
+	.page-picks {
+		--pk-h: 7.25rem;
+		--pk-rail-w: 48px;
+		--pk-handle-w: 44px;
+	}
+
+	.page-picks .pk-board {
+		gap: 0 12px;
+	}
+
+	.page-picks .pk-side {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas: "sw name line";
+		column-gap: 8px;
+		height: 2.75rem;
+	}
+
+	.page-picks .pk-side-line {
+		font-size: 0.82rem;
+	}
+
+	.page-picks .pk-slot-num {
+		font-size: 2rem;
+	}
+}
+
+/* ------------------------------------------------------------------ */
+/* Desktop: two columns, the summary sticky on the right                */
+
+@media (min-width: 900px) {
+	.page-picks {
+		--pk-gap: 10px;
+	}
+
+	.page-picks .pk-layout {
+		grid-template-columns: minmax(0, 1fr) 300px;
+		gap: var(--s-6);
+		align-items: start;
+	}
+
+	.page-picks .pk-summary {
+		grid-column: 2;
+		grid-row: 1;
+		top: calc(var(--topbar-h) + var(--s-6));
+	}
+
+	.page-picks .pk-main {
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	.page-picks .pk-summary-card {
+		padding: var(--s-5);
+		background: var(--bg-elev);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+		box-shadow: var(--sh-1);
+	}
+
+	.page-picks .pk-sum-top {
+		gap: var(--s-4);
+	}
+
+	.page-picks .pk-ring .progress-ring {
+		width: 96px;
+		height: 96px;
+	}
+
+	.page-picks .pk-ring-num {
+		font-size: 1.5rem;
+	}
+
+	.page-picks .pk-sum-main {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas:
+			"due"
+			"counts"
+			"status";
+		gap: var(--s-2);
+	}
+
+	.page-picks .pk-due {
+		font-size: 1.3rem;
+	}
+
+	.page-picks .pk-counts {
+		flex-direction: column;
+		font-size: 0.85rem;
+	}
+
+	.page-picks .pk-status {
+		justify-self: start;
+	}
+}
