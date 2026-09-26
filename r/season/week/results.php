@@ -9,8 +9,6 @@ use Pick55\WeekPayouts;
 use Pick55\WeekResults;
 use Pick55\Models\Game;
 use Pick55\Models\GameScore;
-use Pick55\Models\Pool;
-use Pick55\Models\PoolsUsersLink;
 use Pick55\Models\Team;
 use Pick55\Models\Week;
 use Pick55\R\Fmt;
@@ -152,55 +150,8 @@ $shell->setTitle('Week ' . (int) $week->week_num . ' Results');
 // Players, pools, what-ifs
 // ---------------------------------------------------------------------
 
-$users = [];
-foreach ($season->getPlayers() as $user) {
-	$users[(int) $user->id] = $user;
-}
-$all_user_ids = array_keys($users);
 $friends = $ctx->friendIds();
 $my_id = (int) $me->id;
-
-$pools = [];
-$pool_members = [];
-$pool_by_user_id = [];
-$my_pool_id = null;
-if (sizeof($all_user_ids)) {
-	$links = PoolsUsersLink::where('week_id', '=', $week->id)
-		->whereIn('er_user_id', $all_user_ids)
-		->get();
-	$pool_ids = [];
-	foreach ($links as $link) {
-		$pool_ids[(int) $link->pool_id] = true;
-	}
-	if (sizeof($pool_ids)) {
-		foreach (Pool::whereIn('id', array_keys($pool_ids))->orderBy('pool_num', 'ASC')->get() as $pool) {
-			$pools[(int) $pool->id] = $pool;
-			$pool_members[(int) $pool->id] = [];
-		}
-	}
-	foreach ($links as $link) {
-		$pool_id = (int) $link->pool_id;
-		if (!isset($pools[$pool_id])) {
-			continue;
-		}
-		$pool_members[$pool_id][] = (int) $link->er_user_id;
-		$pool_by_user_id[(int) $link->er_user_id] = (int) $pools[$pool_id]->pool_num;
-		if ((int) $link->er_user_id === $my_id) {
-			$my_pool_id = $pool_id;
-		}
-	}
-}
-
-// No ?pool: the viewer's own pool, as on the classic page. ?pool=0: everyone.
-$selected_pool_id = null;
-if (sizeof($pools)) {
-	$requested = get('pool', null);
-	$candidate = $requested === null ? $my_pool_id : (int) $requested;
-	if ($candidate && isset($pools[$candidate])) {
-		$selected_pool_id = $candidate;
-	}
-}
-$focus_user_ids = $selected_pool_id ? $pool_members[$selected_pool_id] : $all_user_ids;
 
 // What-ifs from the query string, passed to WeekResults exactly as the
 // classic page passes them (so both pages share cache entries).
@@ -212,18 +163,25 @@ foreach ($_GET as $k => $v) {
 }
 
 // ---------------------------------------------------------------------
-// Results (cached) and money
+// Results (cached) and money: players, pools (no ?pool = the viewer's
+// own pool, as on the classic page; ?pool=0 = everyone), the overall and
+// the view's WeekResults, shared with api/week.php through the Context.
 // ---------------------------------------------------------------------
 
+$rf = $ctx->resultsFor($week, get('pool', null), $what_ifs);
+$users = $rf['users'];
+$all_user_ids = $rf['user_ids'];
+$pools = $rf['pools'];
+$pool_by_user_id = $rf['pool_by_user_id'];
+$my_pool_id = $rf['my_pool_id'];
+$selected_pool_id = $rf['selected_pool_id'];
+$selected_pool_num = $rf['selected_pool_num'];
+$overall = $rf['overall'];
+$results = $rf['results'];
+
 $format = $week->getFormat();
-$selected_pool_num = $selected_pool_id ? (int) $pools[$selected_pool_id]->pool_num : null;
 $num_winners = $week->getNumWinners($selected_pool_num);
 $threshold = $week->getMinScoreThreshold($selected_pool_num);
-
-$overall = WeekResults::get($week, $all_user_ids, $what_ifs, null, ['pool_by_user_id' => $pool_by_user_id]);
-$results = $selected_pool_id
-	? WeekResults::get($week, $focus_user_ids, $what_ifs, $selected_pool_num)
-	: $overall;
 $stats_by_user_id = $results['stats_by_user_id'];
 $bets_by_game_id = $results['bets_by_game_id'];
 $num_predictions = $results['num_predictions'];
@@ -589,7 +547,6 @@ $shell->setModule('results', [
 	'show_expected' => $show_expected,
 	'ranked' => $decided_in_view > 0,
 	'chart' => $chart,
-	'chart_src' => $shell->classicLink('static/js/chart.js'),
 ]);
 $shell->addScript('js/pages/results.js');
 

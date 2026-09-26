@@ -6,6 +6,7 @@ use Pick55\Auth;
 use Pick55\DB;
 use Pick55\WeekResults;
 use Pick55\Models\GameScore;
+use Pick55\Models\Guarantee;
 use Pick55\Models\Pool;
 use Pick55\Models\PoolsUsersLink;
 use Pick55\Models\Season;
@@ -63,7 +64,7 @@ class Context
 	private $players = null;
 	/** @var array|null */
 	private $friend_ids = null;
-	/** @var array week_id => WeekResults::get() overall results */
+	/** @var array week_id => [base (players, pools), overall (by what-ifs), pools (by pool and what-ifs)], see resultsFor() */
 	private $results = [];
 
 	/**
@@ -283,6 +284,11 @@ class Context
 	/**
 	 * The viewer's progress on a week's picks.
 	 *
+	 * A game counts as a side when its bet has option 1-3 or sits on a
+	 * guaranteed slot (a value below the player's multipliers_less_than for
+	 * the week, 0 included), as pick.php's ring counts it: those count as
+	 * right whatever the side, before the classic setGuaranteedPoints runs.
+	 *
 	 * @param Week $week
 	 * @return array [week_id, games, sides (games with a side or a guaranteed
 	 *   pick), values (distinct point values 1-10 placed), values_needed
@@ -293,13 +299,17 @@ class Context
 		$info = $this->info($week);
 		$sides = 0;
 		$values = [];
+		$guarantee = Guarantee::where('week_id', '=', $week->id)
+			->where('user_id', '=', $this->user->id)
+			->first();
+		$lt = $guarantee ? (int) $guarantee->multipliers_less_than : 0;
 		$q = DB::table('football_bets AS b')
 			->join('football_games AS g', 'g.id', '=', 'b.football_game_id')
 			->where('g.football_week_id', '=', $week->id)
 			->where('b.user_id', '=', $this->user->id)
 			->select(['b.option', 'b.multiplier']);
 		foreach ($q->get() as $row) {
-			if (in_array((string) $row->option, ['1', '2', '3'], true)) {
+			if (in_array((string) $row->option, ['1', '2', '3'], true) || ($lt > 0 && (int) $row->multiplier < $lt)) {
 				$sides++;
 			}
 			$mult = (int) $row->multiplier;
@@ -391,33 +401,124 @@ class Context
 	 */
 	public function results(Week $week)
 	{
+		return $this->resultsFor($week, 0)['overall'];
+	}
+
+	/**
+	 * The results page's computation for any week, of any season: its
+	 * players and pools, the overall WeekResults (every player of the week's
+	 * season, their pools: payouts and expected winnings) and the view's
+	 * (the overall one, or a pool-only one for a pool). r/season/week/
+	 * results.php and r/api/week.php both call it, so their WeekResults
+	 * cache entries are the same ones. Memoized per request.
+	 *
+	 * @param Week $week
+	 * @param int|string|null $pool_id  the ?pool value: null = the viewer's own pool, 0 = everyone, else a pool id
+	 * @param array $what_ifs  game_id => '1'|'2'
+	 * @return array [
+	 *   users (user_id => User), user_ids, pools (pool_id => Pool, by pool_num),
+	 *   pool_members (pool_id => user ids), pool_by_user_id (user_id => pool_num),
+	 *   my_pool_id, selected_pool_id (null = everyone), selected_pool_num,
+	 *   overall, results (WeekResults::get arrays)]
+	 */
+	public function resultsFor(Week $week, $pool_id = null, array $what_ifs = [])
+	{
 		$id = (int) $week->id;
 		if (!isset($this->results[$id])) {
-			$user_ids = array_keys($this->players());
-			$pool_by_user_id = [];
-			if (sizeof($user_ids)) {
-				$links = PoolsUsersLink::where('week_id', '=', $id)
-					->whereIn('er_user_id', $user_ids)
-					->get();
-				$pool_ids = [];
-				foreach ($links as $link) {
-					$pool_ids[(int) $link->pool_id] = true;
-				}
-				$pool_nums = [];
-				if (sizeof($pool_ids)) {
-					foreach (Pool::whereIn('id', array_keys($pool_ids))->get() as $pool) {
-						$pool_nums[(int) $pool->id] = (int) $pool->pool_num;
-					}
-				}
-				foreach ($links as $link) {
-					if (isset($pool_nums[(int) $link->pool_id])) {
-						$pool_by_user_id[(int) $link->er_user_id] = $pool_nums[(int) $link->pool_id];
-					}
+			$this->results[$id] = ['base' => $this->resultsBase($week), 'overall' => [], 'pools' => []];
+		}
+		$memo = &$this->results[$id];
+		$base = $memo['base'];
+
+		$selected = null;
+		if (sizeof($base['pools'])) {
+			$candidate = $pool_id === null ? $base['my_pool_id'] : (int) $pool_id;
+			if ($candidate && isset($base['pools'][$candidate])) {
+				$selected = (int) $candidate;
+			}
+		}
+		$selected_num = $selected ? (int) $base['pools'][$selected]->pool_num : null;
+
+		ksort($what_ifs);
+		$wi_key = json_encode($what_ifs);
+		if (!isset($memo['overall'][$wi_key])) {
+			$memo['overall'][$wi_key] = WeekResults::get($week, $base['user_ids'], $what_ifs, null, ['pool_by_user_id' => $base['pool_by_user_id']]);
+		}
+		$overall = $memo['overall'][$wi_key];
+		$results = $overall;
+		if ($selected) {
+			$pkey = $selected . ':' . $wi_key;
+			if (!isset($memo['pools'][$pkey])) {
+				$memo['pools'][$pkey] = WeekResults::get($week, $base['pool_members'][$selected], $what_ifs, $selected_num);
+			}
+			$results = $memo['pools'][$pkey];
+		}
+		return $base + [
+			'selected_pool_id' => $selected,
+			'selected_pool_num' => $selected_num,
+			'overall' => $overall,
+			'results' => $results,
+		];
+	}
+
+	/**
+	 * A week's players (its season's linked players, in Season::getPlayers()
+	 * order) and pools, as the classic results page builds them.
+	 *
+	 * @param Week $week
+	 * @return array
+	 */
+	private function resultsBase(Week $week)
+	{
+		$users = [];
+		if ($this->season && (int) $week->football_season_id === (int) $this->season->id) {
+			$users = $this->players();
+		}
+		elseif ($week->season) {
+			foreach ($week->season->getPlayers() as $user) {
+				$users[(int) $user->id] = $user;
+			}
+		}
+		$user_ids = array_keys($users);
+		$my_id = $this->user ? (int) $this->user->id : 0;
+		$pools = [];
+		$pool_members = [];
+		$pool_by_user_id = [];
+		$my_pool_id = null;
+		if (sizeof($user_ids)) {
+			$links = PoolsUsersLink::where('week_id', '=', $week->id)
+				->whereIn('er_user_id', $user_ids)
+				->get();
+			$pool_ids = [];
+			foreach ($links as $link) {
+				$pool_ids[(int) $link->pool_id] = true;
+			}
+			if (sizeof($pool_ids)) {
+				foreach (Pool::whereIn('id', array_keys($pool_ids))->orderBy('pool_num', 'ASC')->get() as $pool) {
+					$pools[(int) $pool->id] = $pool;
+					$pool_members[(int) $pool->id] = [];
 				}
 			}
-			$this->results[$id] = WeekResults::get($week, $user_ids, [], null, ['pool_by_user_id' => $pool_by_user_id]);
+			foreach ($links as $link) {
+				$pid = (int) $link->pool_id;
+				if (!isset($pools[$pid])) {
+					continue;
+				}
+				$pool_members[$pid][] = (int) $link->er_user_id;
+				$pool_by_user_id[(int) $link->er_user_id] = (int) $pools[$pid]->pool_num;
+				if ((int) $link->er_user_id === $my_id) {
+					$my_pool_id = $pid;
+				}
+			}
 		}
-		return $this->results[$id];
+		return [
+			'users' => $users,
+			'user_ids' => $user_ids,
+			'pools' => $pools,
+			'pool_members' => $pool_members,
+			'pool_by_user_id' => $pool_by_user_id,
+			'my_pool_id' => $my_pool_id,
+		];
 	}
 
 	/**

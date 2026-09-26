@@ -437,7 +437,6 @@ ob_start();
 		</section>
 	</div>
 	<div class="sr-only" aria-live="polite" data-pk-live></div>
-	<template data-pk-icon="lock"><?=Icons::svg('lock')?></template>
 </div>
 <?php
 $shell->setContent(ob_get_clean());

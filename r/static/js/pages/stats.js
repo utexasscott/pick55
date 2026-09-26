@@ -8,67 +8,6 @@
 (function () {
 	'use strict';
 
-	var chartPromise = null;
-
-	/** Chart.js, loaded once (it may be missing after a partial navigation). */
-	function loadChart(src) {
-		if (window.Chart) {
-			return Promise.resolve(window.Chart);
-		}
-		if (!chartPromise) {
-			chartPromise = new Promise(function (resolve, reject) {
-				var s = document.createElement('script');
-				s.src = src;
-				s.async = true;
-				s.onload = function () {
-					if (window.Chart) {
-						resolve(window.Chart);
-					}
-					else {
-						reject(new Error('Chart.js did not load'));
-					}
-				};
-				s.onerror = function () {
-					chartPromise = null;
-					reject(new Error('Chart.js did not load'));
-				};
-				document.head.appendChild(s);
-			});
-		}
-		return chartPromise;
-	}
-
-	/** A token's colour with an alpha, from '#rrggbb', '#rgb' or 'rgb(a)(...)'. */
-	function tokenColor(name, alpha) {
-		var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-		var r;
-		var g;
-		var b;
-		var m;
-		if (/^#([0-9a-f]{3})$/i.test(v)) {
-			r = parseInt(v[1] + v[1], 16);
-			g = parseInt(v[2] + v[2], 16);
-			b = parseInt(v[3] + v[3], 16);
-		}
-		else if (/^#([0-9a-f]{6})/i.test(v)) {
-			r = parseInt(v.slice(1, 3), 16);
-			g = parseInt(v.slice(3, 5), 16);
-			b = parseInt(v.slice(5, 7), 16);
-		}
-		else if ((m = v.match(/rgba?\(([^)]+)\)/i))) {
-			var parts = m[1].split(/[\s,/]+/).filter(Boolean);
-			r = parseFloat(parts[0]);
-			g = parseFloat(parts[1]);
-			b = parseFloat(parts[2]);
-			if (alpha == null && parts[3] != null) {
-				alpha = parseFloat(parts[3]);
-			}
-		}
-		else {
-			return v || '#888';
-		}
-		return 'rgba(' + r + ',' + g + ',' + b + ',' + (alpha == null ? 1 : alpha) + ')';
-	}
 
 	// ------------------------------------------------------------------
 	// Ranked tables
@@ -261,7 +200,6 @@
 		});
 		var chart = null;
 		var alive = true;
-		var themeTimer = null;
 
 		function each(sel, fn) {
 			Array.prototype.forEach.call(root.querySelectorAll(sel), fn);
@@ -326,7 +264,7 @@
 			if (!box || !h || !alive) {
 				return;
 			}
-			loadChart(props.chart_src).then(function (Chart) {
+			P55.chart().then(function (Chart) {
 				if (!alive) {
 					return;
 				}
@@ -335,22 +273,23 @@
 					chart.destroy();
 					chart = null;
 				}
-				var faint = tokenColor('--fg-faint');
-				var line = tokenColor('--line');
-				var font = getComputedStyle(document.body).fontFamily;
+				var t = P55.chartTheme();
+				var faint = t.faint;
+				var line = t.line;
+				var font = t.font;
 				var colors = {
-					perfect: tokenColor('--gold'),
-					honor: tokenColor('--gold', 0.45),
-					zero: tokenColor('--bad'),
-					dishonor: tokenColor('--bad', 0.42),
-					base: tokenColor('--fg-faint', 0.45)
+					perfect: t.gold,
+					honor: t.alpha(t.gold, 0.45),
+					zero: t.bad,
+					dishonor: t.alpha(t.bad, 0.42),
+					base: t.alpha(t.faint, 0.45)
 				};
 				var hover = {
-					perfect: tokenColor('--gold'),
-					honor: tokenColor('--gold', 0.7),
-					zero: tokenColor('--bad'),
-					dishonor: tokenColor('--bad', 0.7),
-					base: tokenColor('--fg-muted', 0.8)
+					perfect: t.gold,
+					honor: t.alpha(t.gold, 0.7),
+					zero: t.bad,
+					dishonor: t.alpha(t.bad, 0.7),
+					base: t.alpha(t.muted, 0.8)
 				};
 				var every = box.clientWidth < 520 ? 10 : 5;
 				chart = new Chart(canvas, {
@@ -370,7 +309,7 @@
 					options: {
 						responsive: true,
 						maintainAspectRatio: false,
-						animation: P55.motion.reduced ? false : { duration: 500 },
+						animation: t.animation,
 						scales: {
 							x: {
 								grid: { display: false, drawBorder: false },
@@ -383,13 +322,13 @@
 										return index % every === 0 ? this.getLabelForValue(value) : '';
 									}
 								},
-								title: { display: true, text: 'Weekly score', color: faint, font: { family: font, size: 11, weight: '600' } }
+								title: { display: true, text: 'Weekly score', color: t.muted, font: { family: font, size: 11, weight: '600' } }
 							},
 							y: {
 								beginAtZero: true,
 								grid: { color: line, drawBorder: false },
 								ticks: { color: faint, precision: 0, font: { family: font, size: 11 } },
-								title: { display: true, text: 'Player-weeks', color: faint, font: { family: font, size: 11, weight: '600' } }
+								title: { display: true, text: 'Player-weeks', color: t.muted, font: { family: font, size: 11, weight: '600' } }
 							}
 						},
 						plugins: {
@@ -415,9 +354,7 @@
 		}
 
 		function onTheme() {
-			// The runtime may apply the theme inside a view transition: wait a beat.
-			clearTimeout(themeTimer);
-			themeTimer = setTimeout(drawHistogram, 120);
+			drawHistogram();
 		}
 
 		if (props.histogram) {
@@ -427,7 +364,6 @@
 
 		return function () {
 			alive = false;
-			clearTimeout(themeTimer);
 			root.removeEventListener('click', onClick);
 			document.removeEventListener('p55:theme', onTheme);
 			tables.forEach(function (t) {

@@ -7,37 +7,6 @@
 (function () {
 	'use strict';
 
-	// Chart.js is the classic site's vendored copy, loaded once on demand.
-	var chartLib = null;
-
-	function loadChart(src) {
-		if (window.Chart) {
-			return Promise.resolve(window.Chart);
-		}
-		if (!chartLib) {
-			chartLib = new Promise(function (resolve, reject) {
-				var s = document.createElement('script');
-				s.src = src;
-				s.async = true;
-				s.onload = function () {
-					if (window.Chart) {
-						resolve(window.Chart);
-					}
-					else {
-						chartLib = null;
-						reject(new Error('Chart.js did not load'));
-					}
-				};
-				s.onerror = function () {
-					chartLib = null;
-					reject(new Error('Chart.js did not load'));
-				};
-				document.head.appendChild(s);
-			});
-		}
-		return chartLib;
-	}
-
 	P55.page('results', function (root, props) {
 		var cleanups = [];
 		var stopPoll = null;
@@ -281,11 +250,6 @@
 
 		var canvas = $('canvas[data-chart]');
 
-		function token(css, name, fallback) {
-			var v = css.getPropertyValue(name).trim();
-			return v || fallback;
-		}
-
 		function drawChart(Chart) {
 			if (destroyed || !canvas || !props.chart) {
 				return;
@@ -294,17 +258,11 @@
 				chart.destroy();
 				chart = null;
 			}
-			var css = getComputedStyle(document.documentElement);
-			var muted = token(css, '--fg-muted', '#4c5a55');
-			var line = token(css, '--line', 'rgba(0,0,0,0.1)');
-			var fg = token(css, '--fg', '#0c1411');
-			var font = token(css, '--font', 'system-ui, sans-serif');
-			var palette = ['--accent', '--warn', '--ncaa', '--ou', '--fg-muted', '--spread'].map(function (n) {
-				return token(css, n, '#888');
-			});
+			var t = P55.chartTheme();
+			var palette = [t.accent, t.warn, t.ncaa, t.ou, t.muted, t.spread];
 			var k = 0;
 			var datasets = props.chart.series.map(function (s) {
-				var color = s.me ? token(css, '--brand', '#0e9f6e') : palette[k++ % palette.length];
+				var color = s.me ? t.brand : palette[k++ % palette.length];
 				return {
 					label: s.label,
 					data: s.data,
@@ -317,19 +275,18 @@
 					order: s.me ? 0 : 1
 				};
 			});
-			Chart.defaults.font.family = font;
 			chart = new Chart(canvas, {
 				type: 'line',
 				data: { labels: props.chart.labels, datasets: datasets },
 				options: {
 					responsive: true,
 					maintainAspectRatio: false,
-					animation: P55.motion.reduced ? false : { duration: 500 },
+					animation: t.animation,
 					interaction: { mode: 'index', intersect: false },
 					plugins: {
 						legend: {
 							position: 'bottom',
-							labels: { color: muted, usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 }
+							labels: { color: t.muted, usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 }
 						},
 						tooltip: {
 							callbacks: {
@@ -342,15 +299,14 @@
 					scales: {
 						y: {
 							beginAtZero: true,
-							ticks: { color: muted, callback: function (v) { return P55.fmt.money(v); } },
-							grid: { color: line, drawBorder: false }
+							ticks: { color: t.faint, callback: function (v) { return P55.fmt.money(v); } },
+							grid: { color: t.line, drawBorder: false }
 						},
 						x: {
-							ticks: { color: muted, maxRotation: 0, autoSkip: true },
+							ticks: { color: t.faint, maxRotation: 0, autoSkip: true },
 							grid: { display: false }
 						}
-					},
-					color: fg
+					}
 				}
 			});
 		}
@@ -359,7 +315,7 @@
 			if (!canvas || !props.chart) {
 				return;
 			}
-			loadChart(props.chart_src).then(drawChart, function () {
+			P55.chart().then(drawChart, function () {
 				var box = canvas.parentNode;
 				if (box && !destroyed) {
 					box.innerHTML = '<p class="muted small">The chart could not load.</p>';
@@ -369,14 +325,7 @@
 
 		if (canvas && props.chart) {
 			renderChart();
-			on(document, 'p55:theme', function () {
-				// The theme is applied inside a view transition: paint after it.
-				setTimeout(function () {
-					if (window.Chart) {
-						drawChart(window.Chart);
-					}
-				}, 60);
-			});
+			on(document, 'p55:theme', renderChart);
 		}
 
 		// --------------------------------------------------------------

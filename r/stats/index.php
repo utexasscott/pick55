@@ -238,7 +238,6 @@ $first_season = reset($seasons);
 
 $shell->setModule('stats', [
 	'page' => 'book',
-	'chart_src' => $shell->classicLink('static/js/chart.js'),
 	'histogram' => ['labels' => $labels, 'counts' => $counts, 'tones' => $tones],
 ]);
 

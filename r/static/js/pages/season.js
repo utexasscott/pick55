@@ -11,91 +11,20 @@
 	'use strict';
 
 	var PANEL_KEY = 'p55-standings-panel';
-	var chartLoading = null;
 
-	/** Resolves with window.Chart, loading the vendored file once if a partial navigation skipped it. */
-	function needChart(src) {
-		if (window.Chart) {
-			return Promise.resolve(window.Chart);
-		}
-		if (!chartLoading) {
-			chartLoading = new Promise(function (resolve, reject) {
-				var existing = document.querySelector('script[src*="static/js/chart.js"]');
-				var s = existing || document.createElement('script');
-				var done = function () {
-					if (window.Chart) {
-						resolve(window.Chart);
-					}
-					else {
-						chartLoading = null;
-						reject(new Error('Chart.js failed to load'));
-					}
-				};
-				s.addEventListener('load', done);
-				s.addEventListener('error', done);
-				if (!existing) {
-					s.src = src;
-					document.body.appendChild(s);
-				}
-				else {
-					// Already in the page: it may have loaded between the check and now.
-					setTimeout(function () {
-						if (window.Chart) {
-							resolve(window.Chart);
-						}
-					}, 0);
-				}
-			});
-		}
-		return chartLoading;
-	}
-
-	/** The design tokens charts use, read from the current theme. */
-	function tokens() {
-		var cs = getComputedStyle(document.documentElement);
-		var get = function (name, fallback) {
-			var v = cs.getPropertyValue(name).trim();
-			return v || fallback;
-		};
-		return {
-			fg: get('--fg', '#111'),
-			muted: get('--fg-muted', '#555'),
-			faint: get('--fg-faint', '#888'),
-			line: get('--line', 'rgba(0,0,0,.1)'),
-			bg: get('--bg-elev', '#fff'),
-			brand: get('--brand', '#0e9f6e'),
-			accent: get('--accent', '#2f5bea'),
-			nfl: get('--nfl', '#1f4fd1'),
-			ncaa: get('--ncaa', '#b4233a'),
-			ou: get('--ou', '#7c3aed'),
-			spread: get('--spread', '#e0600f'),
-			font: getComputedStyle(document.body).fontFamily
-		};
-	}
-
-	/** '#rrggbb' + alpha -> 'rgba()'; other colour strings pass through. */
 	function alpha(color, a) {
-		var m = /^#([0-9a-f]{6})$/i.exec(color);
-		if (!m) {
-			return color;
-		}
-		var n = parseInt(m[1], 16);
-		return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
+		return P55.chartTheme().alpha(color, a);
 	}
 
+	/** Chart options every chart here starts from (colours and tooltip come from P55.chart()'s defaults). */
 	function baseOptions(t) {
 		return {
 			responsive: true,
 			maintainAspectRatio: false,
-			animation: P55.motion.reduced ? false : { duration: 500 },
+			animation: t.animation,
 			plugins: {
 				legend: { display: false },
 				tooltip: {
-					backgroundColor: t.fg,
-					titleColor: t.bg,
-					bodyColor: t.bg,
-					cornerRadius: 8,
-					padding: 10,
 					titleFont: { family: t.font, weight: '700' },
 					bodyFont: { family: t.font }
 				}
@@ -126,7 +55,7 @@
 	 * Charts registry for a page: build(name) creates a chart once; rebuild()
 	 * repaints the built ones (theme change); destroy() on teardown.
 	 */
-	function charts(root, src, builders) {
+	function charts(root, builders) {
 		var built = {};
 		var dead = false;
 		return {
@@ -139,14 +68,11 @@
 					return;
 				}
 				built[name] = 'pending';
-				needChart(src).then(function (Chart) {
+				P55.chart().then(function (Chart) {
 					if (dead || built[name] !== 'pending') {
 						return;
 					}
-					var t = tokens();
-					Chart.defaults.font.family = t.font;
-					Chart.defaults.color = t.muted;
-					built[name] = new Chart(canvas, builders[name](t));
+					built[name] = new Chart(canvas, builders[name](P55.chartTheme()));
 				}).catch(function () {
 					built[name] = null;
 				});
@@ -339,7 +265,7 @@
 			return 'W' + w.num + (w.complete ? '' : '*');
 		});
 
-		var registry = charts(root, props.chart_src, {
+		var registry = charts(root, {
 			trajectory: function (t) {
 				var sets = (props.trajectory || []).map(function (p) {
 					var color = p.me ? t.brand : (p.friend ? t.accent : alpha(t.faint, 0.75));
@@ -562,7 +488,7 @@
 				};
 			};
 		}
-		var registry = charts(root, props.chart_src, {
+		var registry = charts(root, {
 			league: donut(['nfl', 'ncaa'], ['NFL', 'NCAA']),
 			type: donut(['ou', 'spread'], ['Over/Under', 'Spread'])
 		});

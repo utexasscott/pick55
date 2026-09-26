@@ -73,12 +73,14 @@ function rs_head($active, $sub = '')
 	$routes = rs_routes();
 	ob_start();
 	?>
-	<header class="stats-head enter">
-		<span class="eyebrow">All-time stats</span>
-		<h1 class="page-title"><?=h($routes[$active][1])?></h1>
-		<?php if ($sub !== ''): ?>
-			<p class="page-sub"><?=h($sub)?></p>
-		<?php endif; ?>
+	<header class="page-head stats-head enter">
+		<div>
+			<span class="eyebrow">All-time stats</span>
+			<h1 class="page-title"><?=h($routes[$active][1])?></h1>
+			<?php if ($sub !== ''): ?>
+				<p class="page-sub"><?=h($sub)?></p>
+			<?php endif; ?>
+		</div>
 	</header>
 	<nav class="stats-nav enter" style="--i: 1" aria-label="All-time stats">
 		<div class="seg">

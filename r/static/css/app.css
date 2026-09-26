@@ -1479,6 +1479,12 @@ div.row-friend {
 	font-size: 0.95rem;
 }
 
+.avatar-sm {
+	width: 28px;
+	height: 28px;
+	font-size: 0.68rem;
+}
+
 :root[data-theme="dark"] .avatar {
 	color: var(--brand-ink);
 }

@@ -380,14 +380,18 @@ class Shell
 	}
 
 	/**
+	 * @param bool $with_props  put the module's props in data-props (a full
+	 *   document; a fragment carries them once, in its "module" member)
 	 * @return string  the .page wrapper with alerts and content
 	 */
-	private function renderPage()
+	private function renderPage($with_props = true)
 	{
 		$attrs = '';
 		if ($this->module) {
 			$attrs .= ' data-module="' . h($this->module) . '"';
-			$attrs .= " data-props='" . json_encode((object) $this->props, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) . "'";
+			if ($with_props) {
+				$attrs .= " data-props='" . json_encode((object) $this->props, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) . "'";
+			}
 		}
 		$class = trim('page ' . ($this->nav !== 'none' ? 'page-' . preg_replace('/[^a-z]/', '', $this->nav) . ' ' : '') . $this->page_class);
 		return '<div class="' . h($class) . '"' . $attrs . '>' . $this->renderAlerts() . $this->content . '</div>';
@@ -425,7 +429,7 @@ class Shell
 			'badges' => (object) $this->ctx->badges(),
 			'authed' => Auth::authed(),
 			'mode' => $this->ctx->mode,
-			'html' => $this->renderPage(),
+			'html' => $this->renderPage(false),
 			'module' => $this->module ? ['name' => $this->module, 'props' => (object) $this->props] : null,
 			'styles' => array_values($this->styles),
 			'scripts' => array_values($this->scripts),

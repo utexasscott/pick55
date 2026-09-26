@@ -2,14 +2,12 @@
 
 require_once __DIR__ . '/../../inc/_inc.php';
 
-use Pick55\WeekResults;
 use Pick55\Models\Game;
 use Pick55\Models\GameScore;
-use Pick55\Models\Pool;
-use Pick55\Models\PoolsUsersLink;
 use Pick55\Models\Team;
 use Pick55\Models\Week;
 use Pick55\R\Api;
+use Pick55\R\Context;
 use Pick55\R\Fmt;
 
 /*
@@ -36,60 +34,17 @@ if (!$week->canUserSeeResults($me->id)) {
 	Api::error('Results are not available yet.', 403);
 }
 
-// Players and pools, as the page builds them.
-$all_user_ids = [];
-foreach ($week->season->getPlayers() as $user) {
-	$all_user_ids[] = (int) $user->id;
-}
-$pools = [];
-$pool_members = [];
-$pool_by_user_id = [];
-$my_pool_id = null;
-if (sizeof($all_user_ids)) {
-	$links = PoolsUsersLink::where('week_id', '=', $week->id)
-		->whereIn('er_user_id', $all_user_ids)
-		->get();
-	$pool_ids = [];
-	foreach ($links as $link) {
-		$pool_ids[(int) $link->pool_id] = true;
-	}
-	if (sizeof($pool_ids)) {
-		foreach (Pool::whereIn('id', array_keys($pool_ids))->get() as $pool) {
-			$pools[(int) $pool->id] = $pool;
-			$pool_members[(int) $pool->id] = [];
-		}
-	}
-	foreach ($links as $link) {
-		$pool_id = (int) $link->pool_id;
-		if (!isset($pools[$pool_id])) {
-			continue;
-		}
-		$pool_members[$pool_id][] = (int) $link->er_user_id;
-		$pool_by_user_id[(int) $link->er_user_id] = (int) $pools[$pool_id]->pool_num;
-		if ((int) $link->er_user_id === (int) $me->id) {
-			$my_pool_id = $pool_id;
-		}
-	}
-}
-$selected_pool_id = null;
-if (sizeof($pools)) {
-	$requested = get('pool', null);
-	$candidate = $requested === null ? $my_pool_id : (int) $requested;
-	if ($candidate && isset($pools[$candidate])) {
-		$selected_pool_id = $candidate;
-	}
-}
+// Players, pools and results exactly as the page computes them.
 $what_ifs = [];
 foreach ($_GET as $k => $v) {
 	if (is_string($v) && preg_match('/^g(\d+)$/', $k, $m) && in_array($v, ['1', '2'], true)) {
 		$what_ifs[$m[1]] = $v;
 	}
 }
-
-$overall = WeekResults::get($week, $all_user_ids, $what_ifs, null, ['pool_by_user_id' => $pool_by_user_id]);
-$results = $selected_pool_id
-	? WeekResults::get($week, $pool_members[$selected_pool_id], $what_ifs, (int) $pools[$selected_pool_id]->pool_num)
-	: $overall;
+$rf = Context::get()->resultsFor($week, get('pool', null), $what_ifs);
+$selected_pool_id = $rf['selected_pool_id'];
+$overall = $rf['overall'];
+$results = $rf['results'];
 
 // Games: the stored result and the live score.
 $scores = [];

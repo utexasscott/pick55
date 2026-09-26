@@ -54,8 +54,7 @@ P55.page('account', function (root, props) {
 			+ '<span class="avatar avatar-sm" aria-hidden="true">' + esc(initials(p.name)) + '</span>'
 			+ '<span class="person-name truncate">' + esc(p.name) + '</span>'
 			+ '<button type="button" class="btn btn-ghost btn-sm" data-friend-add="' + p.id + '" data-name="' + esc(p.name) + '" aria-label="Add ' + esc(p.name) + '">'
-			+ '<svg class="icon icon-plus" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>'
-			+ 'Add</button></li>';
+			+ P55.icon('plus') + 'Add</button></li>';
 	}
 
 	function renderResults() {
@@ -288,15 +287,7 @@ P55.page('account', function (root, props) {
 		results.addEventListener('keydown', onResultsKey);
 	}
 
-	// ---- Theme control: reflect the stored choice (the runtime handles clicks)
-	function paintTheme() {
-		var t = P55.theme.get();
-		Array.prototype.forEach.call(root.querySelectorAll('[data-theme-set]'), function (b) {
-			b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === t ? 'true' : 'false');
-		});
-	}
-	paintTheme();
-	document.addEventListener('p55:theme', paintTheme);
+	// The theme control's pressed state is kept by the runtime.
 
 	// ---- Profile: note unsaved changes
 	var initial = null;
@@ -325,7 +316,6 @@ P55.page('account', function (root, props) {
 
 	return function () {
 		root.removeEventListener('click', onClick);
-		document.removeEventListener('p55:theme', paintTheme);
 		if (search) {
 			search.removeEventListener('input', renderResults);
 			search.removeEventListener('keydown', onSearchKey);

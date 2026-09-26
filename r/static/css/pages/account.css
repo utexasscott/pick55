@@ -56,12 +56,6 @@ html:not(.js) .page-account .js-only,
 	font-size: 0.82rem;
 }
 
-.page-account .avatar-sm {
-	width: 28px;
-	height: 28px;
-	font-size: 0.68rem;
-}
-
 /* ---- Profile ----------------------------------------------------- */
 
 .page-account .profile-form .field:last-of-type {

@@ -25,7 +25,6 @@ P55.page('picks', function (root, props) {
 	var statusBox = root.querySelector('[data-pk-status]');
 	var ringEl = root.querySelector('[data-pk-ring] .progress-ring');
 	var lockedBox = root.querySelector('[data-pk-locked]');
-	var lockTpl = root.querySelector('template[data-pk-icon="lock"]');
 	var phoneMq = window.matchMedia ? window.matchMedia('(max-width: 899.98px)') : null;
 
 	var weekId = props.week_id;
@@ -385,7 +384,7 @@ P55.page('picks', function (root, props) {
 				break;
 			case 'locked':
 				tone = 'pill-outline';
-				iconHtml = lockTpl ? lockTpl.innerHTML : '';
+				iconHtml = P55.icon('lock');
 				text = 'Locked';
 				break;
 		}

@@ -206,7 +206,7 @@ $game_card = function (array $g) use ($status_text) {
 ob_start();
 ?>
 <div class="today">
-	<header class="today-head enter">
+	<header class="page-head today-head enter">
 		<div>
 			<span class="eyebrow"><?=h(Fmt::dateLong($ctx->now))?></span>
 			<h1 class="page-title"><?=h($greeting)?>, <?=h($me->first_name !== '' ? $me->first_name : Fmt::name($me))?></h1>

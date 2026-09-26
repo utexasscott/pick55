@@ -38,7 +38,6 @@ if (!$season || !$season->hasPlayer($me_id)) {
 }
 
 $shell->setTitle('My season ' . "\u{00B7} " . $season->name);
-$shell->addScript('../../static/js/chart.js');
 $shell->addScript('js/pages/season.js');
 
 $now = time();
@@ -66,7 +65,6 @@ if ($mine) {
 $shell->setModule('season', [
 	'season_id' => (int) $season->id,
 	'breakdown' => $breakdown,
-	'chart_src' => $shell->classicLink('static/js/chart.js'),
 ]);
 
 $result_meta = [

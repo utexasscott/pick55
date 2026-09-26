@@ -94,7 +94,13 @@
 		info: '<circle cx="12" cy="12" r="9.5"/><path d="M12 16v-4.5"/><path d="M12 8h.01"/>',
 		'alert-triangle': '<path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
 		'wifi-off': '<path d="M2 2l20 20"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 5.2-2.7"/><path d="M19 12.9a10 10 0 0 0-2.3-1.6"/><path d="M2 8.8a15 15 0 0 1 4.2-2.6"/><path d="M22 8.8A15 15 0 0 0 11 5"/><path d="M12 20h.01"/>',
-		undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'
+		undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+		lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+		plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+		minus: '<path d="M5 12h14"/>',
+		'chevron-up': '<path d="m18 15-6-6-6 6"/>',
+		'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+		'chevron-right': '<path d="m9 18 6-6-6-6"/>'
 	};
 
 	function icon(name, cls) {
@@ -111,6 +117,27 @@
 			return !!(reducedMq && reducedMq.matches);
 		}
 	};
+
+	/**
+	 * Runs update() inside a View Transition when one is available and
+	 * wanted, else directly. Resolves once the DOM is updated. A transition
+	 * the browser skips (a hidden tab, a newer transition) is not an error.
+	 */
+	function transition(update, animate) {
+		if (animate && document.startViewTransition && !document.hidden) {
+			var t = document.startViewTransition(update);
+			var quiet = function () {};
+			if (t.ready) {
+				t.ready.catch(quiet);
+			}
+			if (t.finished) {
+				t.finished.catch(quiet);
+			}
+			return t.updateCallbackDone;
+		}
+		update();
+		return Promise.resolve();
+	}
 
 	// ------------------------------------------------------------------
 	// Progress bar
@@ -381,6 +408,47 @@
 		});
 	}
 
+	var CARRY_KEY = 'p55-carry-alerts';
+
+	/** Keeps a fragment's flash alerts for the next page load (sessionStorage). */
+	function carryAlerts(html) {
+		try {
+			// A <template> parses without loading the fragment's images.
+			var box = document.createElement('template');
+			box.innerHTML = String(html || '');
+			var list = $$('.alert', box.content || box).map(function (al) {
+				var kind = (al.className.match(/alert-(success|error|warning|info)/) || [])[1] || 'info';
+				var text = al.querySelector('.alert-text');
+				return { kind: kind, text: (text ? text.textContent : al.textContent).trim() };
+			}).filter(function (a) {
+				return a.text !== '';
+			});
+			if (list.length) {
+				sessionStorage.setItem(CARRY_KEY, JSON.stringify(list));
+			}
+		}
+		catch (e) {
+			// storage blocked: the messages are lost, the page still loads
+		}
+	}
+
+	/** Shows alerts carried over from the previous page as toasts. */
+	function showCarriedAlerts() {
+		var list = null;
+		try {
+			list = JSON.parse(sessionStorage.getItem(CARRY_KEY) || 'null');
+			sessionStorage.removeItem(CARRY_KEY);
+		}
+		catch (e) {
+			list = null;
+		}
+		if (Array.isArray(list)) {
+			list.forEach(function (a) {
+				P55.toast(String(a.text), a.kind);
+			});
+		}
+	}
+
 	function isFragment(data) {
 		return data && typeof data.html === 'string';
 	}
@@ -465,8 +533,10 @@
 			location.assign(target.href);
 			return new Promise(function () {});
 		}
-		// Signing in or out changes the shell itself: load it whole.
+		// Signing in or out changes the shell itself: load it whole. The
+		// fragment already consumed the flash messages, so carry them over.
 		if (!!data.authed !== authed) {
+			carryAlerts(data.html);
 			location.assign(target.href);
 			return new Promise(function () {});
 		}
@@ -537,15 +607,15 @@
 			closeMenus();
 			afterDom();
 			updateClassicLinks();
+			syncThemeButtons();
 			var page = main.firstElementChild;
 			enhance(page || main);
 			var mod = data.module || null;
 			initModule(mod ? mod.name : null, mod ? mod.props : {}, page || main);
 		}
 		var animate = opts.transition !== false && !P55.motion.reduced;
-		if (animate && document.startViewTransition) {
-			var t = document.startViewTransition(update);
-			return t.updateCallbackDone;
+		if (animate && document.startViewTransition && !document.hidden) {
+			return transition(update, true);
 		}
 		update();
 		if (animate) {
@@ -1051,7 +1121,13 @@
 	// ------------------------------------------------------------------
 	// Theme
 
+	// The choice for this page when storage is blocked.
+	var memTheme = null;
+
 	function storedTheme() {
+		if (memTheme) {
+			return memTheme;
+		}
 		try {
 			var t = localStorage.getItem(THEME_KEY);
 			return t === 'light' || t === 'dark' ? t : 'system';
@@ -1077,13 +1153,23 @@
 		else {
 			root.setAttribute('data-theme', t);
 		}
-		$$('[data-theme-set]').forEach(function (b) {
-			b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === t ? 'true' : 'false');
-		});
+		syncThemeButtons();
 		var meta = $('meta[name="theme-color"]');
 		if (meta) {
 			meta.setAttribute('content', resolvedTheme() === 'dark' ? '#090d0c' : '#f3f5f4');
 		}
+	}
+
+	/** Every [data-theme-set] control shows the stored choice as pressed. */
+	function syncThemeButtons() {
+		var t = storedTheme();
+		$$('[data-theme-set]').forEach(function (b) {
+			b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === t ? 'true' : 'false');
+		});
+	}
+
+	function themeChanged() {
+		dispatch('p55:theme', { theme: storedTheme(), resolved: resolvedTheme() });
 	}
 
 	P55.theme = {
@@ -1100,27 +1186,21 @@
 			}
 			catch (e) {
 				// storage blocked: the choice lasts for this page only
-				if (t === 'light' || t === 'dark') {
-					root.setAttribute('data-theme', t);
-				}
-				else {
-					root.removeAttribute('data-theme');
-				}
+				memTheme = t === 'light' || t === 'dark' ? t : 'system';
 			}
-			if (document.startViewTransition && !P55.motion.reduced) {
-				document.startViewTransition(applyTheme);
-			}
-			else {
+			// p55:theme fires once the new theme's tokens are in effect, so
+			// listeners (charts) can read them at once.
+			transition(applyTheme, !P55.motion.reduced).then(themeChanged, function () {
 				applyTheme();
-			}
-			dispatch('p55:theme', { theme: storedTheme(), resolved: resolvedTheme() });
+				themeChanged();
+			});
 		}
 	};
 
 	if (darkMq) {
 		var onScheme = function () {
 			applyTheme();
-			dispatch('p55:theme', { theme: storedTheme(), resolved: resolvedTheme() });
+			themeChanged();
 		};
 		if (darkMq.addEventListener) {
 			darkMq.addEventListener('change', onScheme);
@@ -1384,6 +1464,125 @@
 	};
 
 	// ------------------------------------------------------------------
+	// Charts: the classic site's vendored Chart.js 3.5.1, loaded once on
+	// demand, and the design tokens charts are painted with.
+
+	/** 'rgba()' of a colour ('#rgb', '#rrggbb', 'rgb()', 'rgba()') with alpha a. */
+	function withAlpha(color, a) {
+		var v = String(color || '').trim();
+		var r;
+		var g;
+		var bl;
+		var m;
+		if (/^#[0-9a-f]{3}$/i.test(v)) {
+			r = parseInt(v[1] + v[1], 16);
+			g = parseInt(v[2] + v[2], 16);
+			bl = parseInt(v[3] + v[3], 16);
+		}
+		else if (/^#[0-9a-f]{6}/i.test(v)) {
+			r = parseInt(v.slice(1, 3), 16);
+			g = parseInt(v.slice(3, 5), 16);
+			bl = parseInt(v.slice(5, 7), 16);
+		}
+		else if ((m = v.match(/rgba?\(([^)]+)\)/i))) {
+			var parts = m[1].split(/[\s,/]+/).filter(Boolean);
+			r = parseFloat(parts[0]);
+			g = parseFloat(parts[1]);
+			bl = parseFloat(parts[2]);
+			if (a == null && parts[3] != null) {
+				a = parseFloat(parts[3]);
+			}
+		}
+		else {
+			return v || '#888';
+		}
+		return 'rgba(' + r + ',' + g + ',' + bl + ',' + (a == null ? 1 : a) + ')';
+	}
+
+	var CHART_TOKENS = {
+		fg: '--fg', muted: '--fg-muted', faint: '--fg-faint', line: '--line', bg: '--bg-elev',
+		brand: '--brand', accent: '--accent', good: '--good', bad: '--bad', warn: '--warn', live: '--live',
+		gold: '--gold', silver: '--silver', bronze: '--bronze',
+		nfl: '--nfl', ncaa: '--ncaa', ou: '--ou', spread: '--spread'
+	};
+
+	/**
+	 * P55.chartTheme(): the current theme's colours for charts, read from the
+	 * CSS tokens ({fg, muted, faint, line, bg, brand, accent, good, bad, warn,
+	 * live, gold, silver, bronze, nfl, ncaa, ou, spread}), plus font (the UI
+	 * family), animation (false under reduced motion) and alpha(color, a).
+	 * Read it at draw time and again on p55:theme.
+	 */
+	P55.chartTheme = function () {
+		var cs = getComputedStyle(root);
+		var t = {};
+		Object.keys(CHART_TOKENS).forEach(function (k) {
+			t[k] = cs.getPropertyValue(CHART_TOKENS[k]).trim() || '#888';
+		});
+		t.font = getComputedStyle(document.body).fontFamily;
+		t.animation = P55.motion.reduced ? false : { duration: 500 };
+		t.alpha = withAlpha;
+		return t;
+	};
+
+	/** The shared look of every chart: font, text, grid and tooltip from the tokens. */
+	function chartDefaults(Chart) {
+		var t = P55.chartTheme();
+		var d = Chart.defaults;
+		d.font.family = t.font;
+		d.color = t.muted;
+		d.borderColor = t.line;
+		var tip = d.plugins && d.plugins.tooltip;
+		if (tip) {
+			tip.backgroundColor = t.fg;
+			tip.titleColor = t.bg;
+			tip.bodyColor = t.bg;
+			tip.footerColor = t.bg;
+			tip.cornerRadius = 8;
+			tip.padding = 10;
+		}
+		return Chart;
+	}
+
+	var chartLoad = null;
+
+	/**
+	 * P55.chart(): resolves with window.Chart, loading the vendored
+	 * static/js/chart.js once, its defaults set from the current theme.
+	 * Call it for every (re)draw.
+	 */
+	P55.chart = function () {
+		if (window.Chart) {
+			return Promise.resolve(chartDefaults(window.Chart));
+		}
+		if (!chartLoad) {
+			chartLoad = new Promise(function (resolve, reject) {
+				var s = document.createElement('script');
+				function fail() {
+					chartLoad = null;
+					if (s.parentNode) {
+						s.parentNode.removeChild(s);
+					}
+					reject(new Error('Chart.js did not load'));
+				}
+				s.src = CLASSIC_BASE + 'static/js/chart.js';
+				s.async = true;
+				s.onload = function () {
+					if (window.Chart) {
+						resolve(window.Chart);
+					}
+					else {
+						fail();
+					}
+				};
+				s.onerror = fail;
+				document.head.appendChild(s);
+			});
+		}
+		return chartLoad.then(chartDefaults);
+	};
+
+	// ------------------------------------------------------------------
 	// Boot
 
 	function boot() {
@@ -1422,6 +1621,7 @@
 		var main = document.getElementById('app-main');
 		var page = main ? main.firstElementChild : null;
 		enhance(page || document);
+		showCarriedAlerts();
 		if (page && page.hasAttribute('data-module')) {
 			var props = {};
 			try {

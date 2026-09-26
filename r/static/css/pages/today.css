@@ -7,11 +7,6 @@
 }
 
 .page-today .today-head {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	justify-content: space-between;
-	gap: var(--s-3);
 	margin-bottom: var(--s-1);
 }
 
@@ -477,11 +472,13 @@
 	border-bottom: 1px solid var(--line);
 }
 
-.page-today .season-stats {
+/* Scoped under .today: My Season's wrapper is also .page-today (its nav
+   key) and has its own .season-stats in season.css. */
+.page-today .today .season-stats {
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.page-today .season-stats .stat-value {
+.page-today .today .season-stats .stat-value {
 	font-size: 1.7rem;
 }
 

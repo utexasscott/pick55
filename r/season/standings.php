@@ -32,7 +32,6 @@ if (!$season || !$season->hasPlayer($me->id)) {
 }
 
 $shell->setTitle('Standings ' . "\u{00B7} " . $season->name);
-$shell->addScript('../../static/js/chart.js');
 $shell->addScript('js/pages/season.js');
 
 $data = SeasonStandings::get($season);
@@ -112,7 +111,6 @@ $shell->setModule('standings', [
 		'counts' => array_values($data['week_scores_count']),
 		'mine' => array_keys($my_scores),
 	],
-	'chart_src' => $shell->classicLink('static/js/chart.js'),
 ]);
 
 /** "34–18 (65%)" in a cell, sortable by right. */
