@@ -100,6 +100,33 @@ class Page
 	}
 
 	/**
+	 * The redesigned site's (r/, "Version 2.0") counterpart of the current
+	 * page, query string included, when r/ has a page at the same relative
+	 * path; otherwise r/ itself.
+	 *
+	 * @return string
+	 */
+	public function redesignLink()
+	{
+		$base = trim((string) parse_url((string) config('base_url'), PHP_URL_PATH), '/');
+		$base = $base === '' ? '/' : '/' . $base . '/';
+		$uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+		$path = (string) parse_url($uri, PHP_URL_PATH);
+		$query = (string) parse_url($uri, PHP_URL_QUERY);
+		$rel = '';
+		if (strpos($path, $base) === 0) {
+			$rel = (string) substr($path, strlen($base));
+		}
+		if ($rel !== ''
+			&& preg_match('~^[A-Za-z0-9_-][A-Za-z0-9_/-]*\.php$~', $rel)
+			&& strpos($rel, 'admin/') !== 0
+			&& is_file(__DIR__ . '/../../r/' . $rel)) {
+			return $this->link('r/' . $rel . ($query !== '' ? '?' . $query : ''));
+		}
+		return $this->link('r/');
+	}
+
+	/**
 	 * @return string
 	 */
 	public function getTitle()
@@ -187,6 +214,7 @@ class Page
 						<ul class="nav col-12 col-lg-auto me-lg-auto justify-content-center align-items-center">
 							<li><a class="nav-link px-2 text-light" href="<?=$this->link()?>">Home</a></li>
 							<li><a class="nav-link px-2 text-light" href="<?=$this->link('rules.php')?>">Rules</a></li>
+							<li><a class="nav-link px-2 text-info" href="<?=$this->redesignLink()?>">Version 2.0</a></li>
 						</ul>
 						<div class="d-flex flex-wrap justify-content-center gap-1">
 							<?php if (!Auth::authed()): ?>
@@ -458,6 +486,7 @@ class Page
 				<p class="col mb-0 text-muted">&copy; <?=date("Y")?> Pick55</p>
 				<ul class="nav col col-auto justify-content-end flex-column flex-sm-row text-end text-sm-start gap-1">
 					<li class="nav-item"><a class="nav-link px-2 text-muted" href="<?=$this->link()?>">Home</a></li>
+					<li class="nav-item"><a class="nav-link px-2 text-muted" href="<?=$this->redesignLink()?>">Version 2.0</a></li>
 					<?php if (!Auth::authed()): ?>
 						<li class="nav-item"><a class="nav-link px-2 text-muted" href="<?=$this->link('auth/login.php')?>">Sign In</a></li>
 						<li class="nav-item"><a class="nav-link px-2 text-muted" href="<?=$this->link('auth/signup.php')?>">Sign Up</a></li>

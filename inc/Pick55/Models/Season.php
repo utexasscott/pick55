@@ -64,8 +64,11 @@ class Season extends BaseModel
 	 */
 	public function getActiveWeek()
 	{
+		// reorder(): weeks() already orders ascending, and a second orderBy
+		// would come after it and lose (the classic results page showed
+		// Week 1 while a later week was live, 2026-09-26).
 		$weeks = $this->weeks()
-			->orderBy('week_num', 'DESC')
+			->reorder('week_num', 'DESC')
 			->get();
 		foreach ($weeks as $week) {
 			if ($week->canPick()) {
@@ -88,8 +91,11 @@ class Season extends BaseModel
 	 */
 	public function getResultWeek()
 	{
+		// reorder(): weeks() already orders ascending, and a second orderBy
+		// would come after it and lose (the classic results page showed
+		// Week 1 while a later week was live, 2026-09-26).
 		$weeks = $this->weeks()
-			->orderBy('week_num', 'DESC')
+			->reorder('week_num', 'DESC')
 			->get();
 		foreach ($weeks as $week) {
 			if ($week->canSeeResults()) {
@@ -104,8 +110,11 @@ class Season extends BaseModel
 	 */
 	public function getPickWeek()
 	{
+		// reorder(): weeks() already orders ascending, and a second orderBy
+		// would come after it and lose (the classic results page showed
+		// Week 1 while a later week was live, 2026-09-26).
 		$weeks = $this->weeks()
-			->orderBy('week_num', 'DESC')
+			->reorder('week_num', 'DESC')
 			->get();
 		foreach ($weeks as $week) {
 			if ($week->canPick()) {

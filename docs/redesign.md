@@ -220,7 +220,9 @@ Motion: `view-transition` names on `#app-main`; `.enter` keyframes for cards; sc
 
 None. No class outside `inc/Pick55/R/` was changed for the redesign (checked 2026-09-25 after every area shipped). List here any additive change made later, with the reason.
 
-Known classic quirk the redesign works around rather than fixes: `Season::getResultWeek()` and `getPickWeek()` add `orderBy('week_num', 'DESC')` after `Season::weeks()`'s own ascending order, so MySQL keeps the ascending order and they return the *earliest* matching week (the classic `season/week/results.php` with no id shows Week 1 while Week 3 is live; `App::getViewableWeek()` has the same shape). `Context` and the `r/` pages compute the latest week themselves. The fix (`->reorder()` or reversing in PHP) belongs to the classic code and is the owner's call.
+Classic quirk, fixed 2026-09-26: `Season::getResultWeek()`, `getPickWeek()` and `getActiveWeek()` added `orderBy('week_num', 'DESC')` after `Season::weeks()`'s own ascending order, so MySQL kept the ascending order and they returned the *earliest* matching week (the classic `season/week/results.php` with no id showed Week 1 while Week 3 was live). They now use `->reorder('week_num', 'DESC')`. `Context` and the `r/` pages still compute the latest week themselves.
+
+Classic site links to the redesign (2026-09-26): the classic header nav and footer carry a "Version 2.0" link built by `Page::redesignLink()`, which points at the `r/` page with the same relative path and query string when one exists (never an admin page), else `r/` itself. That is the classic-side counterpart of the shell's "Classic site" link.
 
 ## 10. Local testing
 
