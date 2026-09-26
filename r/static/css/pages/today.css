@@ -1,0 +1,580 @@
+/* Today (r/index.php, signed in). Scoped to .page-today. */
+
+.page-today .today {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s-4);
+}
+
+.page-today .today-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--s-3);
+	margin-bottom: var(--s-1);
+}
+
+/* ---- Hero ---------------------------------------------------------- */
+
+.page-today .hero {
+	position: relative;
+	padding: var(--s-6) var(--s-5);
+	overflow: hidden;
+	isolation: isolate;
+}
+
+.page-today .hero::before {
+	content: "";
+	position: absolute;
+	inset: -40% -20% auto auto;
+	width: 70%;
+	height: 160%;
+	background: radial-gradient(closest-side, var(--brand-soft), transparent 70%);
+	z-index: -1;
+	pointer-events: none;
+}
+
+.page-today .hero-live::before {
+	background: radial-gradient(closest-side, var(--live-soft), transparent 70%);
+}
+
+.page-today .hero-title {
+	margin: 2px 0 10px;
+	font-size: clamp(1.65rem, 5.4vw, 2.5rem);
+	font-weight: 850;
+	font-stretch: 80%;
+	letter-spacing: -0.02em;
+	line-height: 1.04;
+	text-wrap: balance;
+}
+
+.page-today .hero-sub {
+	max-width: 54ch;
+	margin: 0;
+	color: var(--fg-muted);
+}
+
+.page-today .hero-sub .icon {
+	vertical-align: -0.2em;
+}
+
+.page-today .hero-meta {
+	margin-top: var(--s-4);
+}
+
+.page-today .hero-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s-2);
+	margin-top: var(--s-5);
+}
+
+.page-today .hero-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--s-3);
+	margin-bottom: var(--s-5);
+}
+
+.page-today .hero-foot {
+	margin-top: var(--s-4);
+}
+
+/* Pick: the copy beside the progress ring */
+.page-today .hero-pick {
+	display: grid;
+	gap: var(--s-6);
+}
+
+.page-today .hero-side {
+	display: flex;
+	align-items: center;
+	gap: var(--s-5);
+}
+
+.page-today .ring-num {
+	font-size: 2.2rem;
+	font-weight: 850;
+	font-stretch: 75%;
+	line-height: 1;
+}
+
+.page-today .ring-num small {
+	font-size: 0.5em;
+	font-weight: 700;
+	color: var(--fg-faint);
+}
+
+.page-today .ring-cap {
+	margin-top: 2px;
+	color: var(--fg-faint);
+	font-size: 0.68rem;
+	font-weight: 750;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.page-today .ring-legend {
+	display: grid;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	color: var(--fg-muted);
+	font-size: 0.88rem;
+}
+
+.page-today .ring-legend li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.page-today .ring-legend b {
+	margin-left: auto;
+	padding-left: var(--s-3);
+	color: var(--fg);
+}
+
+.page-today .legend-dot {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	flex: none;
+}
+
+@media (max-width: 480px) {
+	.page-today .hero-side .progress-ring {
+		width: 108px;
+		height: 108px;
+	}
+
+	.page-today .ring-num {
+		font-size: 1.8rem;
+	}
+}
+
+@media (min-width: 720px) {
+	.page-today .hero {
+		padding: var(--s-8);
+	}
+
+	.page-today .hero-pick {
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+	}
+
+	.page-today .hero-side {
+		flex-direction: column;
+		gap: var(--s-4);
+		padding-left: var(--s-8);
+		border-left: 1px solid var(--line);
+	}
+}
+
+/* Live and recap: the scoreboard */
+.page-today .scoreboard {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--s-5) var(--s-4);
+}
+
+.page-today .scoreboard .stat-lg {
+	grid-column: 1 / -1;
+}
+
+.page-today .scoreboard .stat-lg .stat-value {
+	font-size: 4.2rem;
+	letter-spacing: -0.03em;
+}
+
+@media (min-width: 720px) {
+	.page-today .scoreboard {
+		grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr));
+		align-items: end;
+	}
+
+	.page-today .scoreboard .stat-lg {
+		grid-column: auto;
+	}
+}
+
+.page-today .hero-recap .hero-title {
+	margin-bottom: var(--s-5);
+}
+
+.page-today .hero-recap .hero-sub {
+	margin-top: var(--s-5);
+}
+
+.page-today .hero-next {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--s-2) var(--s-3);
+	margin-top: var(--s-5);
+	padding-top: var(--s-4);
+	border-top: 1px solid var(--line);
+	color: var(--fg-muted);
+}
+
+.page-today .hero-next strong {
+	color: var(--fg);
+}
+
+.page-today .hero-waiting .hero-title .num {
+	color: var(--brand-text);
+}
+
+/* ---- The live strip ------------------------------------------------ */
+
+.page-today .strip {
+	display: flex;
+	gap: 10px;
+	margin: var(--s-6) calc(-1 * var(--s-5)) 0;
+	padding: 2px var(--s-5) 6px;
+	overflow-x: auto;
+	overscroll-behavior-x: contain;
+	scroll-snap-type: x proximity;
+	scroll-padding: 0 var(--s-5);
+	scrollbar-width: thin;
+	-webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 720px) {
+	.page-today .strip {
+		margin-left: calc(-1 * var(--s-8));
+		margin-right: calc(-1 * var(--s-8));
+		padding-left: var(--s-8);
+		padding-right: var(--s-8);
+		scroll-padding: 0 var(--s-8);
+	}
+}
+
+.page-today .gcard {
+	flex: 0 0 212px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px 12px 10px;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: var(--bg);
+	scroll-snap-align: start;
+	transition: border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+
+.page-today .gcard.is-in {
+	border-color: color-mix(in srgb, var(--live) 45%, transparent);
+	box-shadow: 0 0 0 3px var(--live-soft);
+}
+
+.page-today .gcard.is-post {
+	opacity: 0.86;
+}
+
+.page-today .gcard-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	color: var(--fg-muted);
+	font-size: 0.74rem;
+}
+
+.page-today .gcard-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 650;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.page-today .gcard.is-in .gcard-label {
+	color: var(--live);
+}
+
+.page-today .gcard-teams {
+	display: grid;
+	gap: 4px;
+}
+
+.page-today .gcard-team {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	font-size: 0.92rem;
+	font-weight: 650;
+}
+
+.page-today .gcard-swatch {
+	width: 10px;
+	height: 10px;
+	border-radius: 3px;
+	background: var(--c);
+	box-shadow: inset 0 0 0 1px var(--line);
+	flex: none;
+}
+
+.page-today .gcard-score {
+	margin-left: auto;
+	padding: 0 3px;
+	font-size: 1.2rem;
+	font-weight: 850;
+	font-stretch: 78%;
+	line-height: 1.1;
+}
+
+.page-today .gcard-pick {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	padding-top: 9px;
+	border-top: 1px dashed var(--line-strong);
+	font-size: 0.82rem;
+	font-weight: 600;
+}
+
+.page-today .gcard-mult {
+	display: grid;
+	place-items: center;
+	min-width: 24px;
+	height: 24px;
+	padding: 0 4px;
+	border-radius: 7px;
+	background: var(--brand-soft);
+	color: var(--brand-text);
+	font-size: 0.78rem;
+	font-weight: 850;
+	flex: none;
+}
+
+.page-today .gcard-mult.is-empty {
+	background: var(--bg-sunken);
+	color: var(--fg-faint);
+}
+
+.page-today .gcard-status {
+	margin-left: auto;
+	font-size: 0.72rem;
+	font-weight: 800;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	color: var(--fg-faint);
+}
+
+.page-today .st-covering .gcard-status,
+.page-today .st-right .gcard-status {
+	color: var(--good);
+}
+
+.page-today .st-trailing .gcard-status,
+.page-today .st-wrong .gcard-status {
+	color: var(--bad);
+}
+
+.page-today .st-auto .gcard-status {
+	color: var(--accent);
+}
+
+.page-today .gcard.st-covering,
+.page-today .gcard.st-right {
+	box-shadow: inset 0 -3px 0 var(--good);
+}
+
+.page-today .gcard.st-trailing,
+.page-today .gcard.st-wrong {
+	box-shadow: inset 0 -3px 0 var(--bad);
+}
+
+.page-today .gcard.is-in.st-covering {
+	box-shadow: 0 0 0 3px var(--live-soft), inset 0 -3px 0 var(--good);
+}
+
+.page-today .gcard.is-in.st-trailing {
+	box-shadow: 0 0 0 3px var(--live-soft), inset 0 -3px 0 var(--bad);
+}
+
+/* ---- "Also" bars (the other moment, one line) ---------------------- */
+
+.page-today .also {
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+	padding: 14px var(--s-5);
+	color: var(--fg);
+}
+
+.page-today .also-text {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.92rem;
+}
+
+.page-today .also-chev {
+	color: var(--fg-faint);
+}
+
+.page-today .also-icon {
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	flex: none;
+}
+
+.page-today .also-icon .icon {
+	width: 16px;
+	height: 16px;
+	stroke-width: 3;
+}
+
+.page-today .also-good {
+	background: var(--good-soft);
+	color: var(--good);
+}
+
+/* ---- Below the hero ------------------------------------------------ */
+
+.page-today .today-below {
+	margin-top: var(--s-2);
+	align-items: start;
+}
+
+.page-today .board-row {
+	gap: var(--s-3);
+}
+
+.page-today .board-name {
+	flex: 1;
+	font-weight: 600;
+}
+
+.page-today .board-pts {
+	font-weight: 800;
+	white-space: nowrap;
+}
+
+.page-today .board-pts small {
+	color: var(--fg-faint);
+	font-weight: 600;
+}
+
+.page-today .board .board-gap {
+	justify-content: center;
+	min-height: 18px;
+	padding: 0;
+	color: var(--fg-faint);
+	letter-spacing: 0.2em;
+	line-height: 1;
+	border-bottom: 1px solid var(--line);
+}
+
+.page-today .season-stats {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.page-today .season-stats .stat-value {
+	font-size: 1.7rem;
+}
+
+.page-today .spark-wrap {
+	margin-top: var(--s-4);
+}
+
+.page-today .spark {
+	width: 100%;
+	height: auto;
+	overflow: visible;
+}
+
+.page-today .spark-base {
+	stroke: var(--line);
+	stroke-width: 1;
+}
+
+.page-today .spark-area {
+	fill: var(--brand-soft);
+}
+
+.page-today .spark-line {
+	fill: none;
+	stroke: var(--brand);
+	stroke-width: 2.5;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+
+.page-today .spark-dot {
+	fill: var(--bg-elev);
+	stroke: var(--brand);
+	stroke-width: 2;
+}
+
+.page-today .spark-dot.is-last {
+	fill: var(--brand);
+}
+
+.page-today .spark-labels {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 4px;
+	padding: 0 2px;
+	color: var(--fg-faint);
+	font-size: 0.7rem;
+	font-weight: 650;
+}
+
+.page-today .walls > li {
+	gap: var(--s-3);
+}
+
+.page-today .walls > li.row-me,
+.page-today .walls > li.row-friend {
+	padding-left: 10px;
+	padding-right: 10px;
+	border-radius: 10px;
+}
+
+.page-today .wall-icon {
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 10px;
+	flex: none;
+}
+
+.page-today .wall-icon .icon {
+	width: 18px;
+	height: 18px;
+}
+
+.page-today .wall-icon.is-fame {
+	background: color-mix(in srgb, var(--gold) 20%, transparent);
+	color: var(--gold);
+}
+
+.page-today .wall-icon.is-shame {
+	background: var(--bad-soft);
+	color: var(--bad);
+}
+
+.page-today .wall-text {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	line-height: 1.25;
+}
+
+.page-today .wall-text .muted {
+	font-size: 0.82rem;
+}

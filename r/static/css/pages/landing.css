@@ -1,0 +1,432 @@
+/* Landing (r/index.php for guests). Scoped to .page-landing. */
+
+.page-landing .landing-hero {
+	display: grid;
+	gap: var(--s-8);
+	align-items: center;
+	padding: var(--s-2) 0 var(--s-10);
+}
+
+.page-landing .landing-title {
+	margin: var(--s-4) 0;
+	font-size: clamp(2.5rem, 9.5vw, 4.4rem);
+	font-weight: 900;
+	font-stretch: 72%;
+	line-height: 0.96;
+	letter-spacing: -0.025em;
+	text-wrap: balance;
+}
+
+.page-landing .landing-title span {
+	color: var(--brand-text);
+}
+
+.page-landing .landing-lead {
+	max-width: 46ch;
+	margin: 0;
+	color: var(--fg-muted);
+	font-size: 1.08rem;
+}
+
+.page-landing .landing-cta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s-2);
+	margin-top: var(--s-6);
+}
+
+.page-landing .landing-h2 {
+	margin-bottom: var(--s-5);
+	font-size: 1.5rem;
+	font-weight: 850;
+	font-stretch: 82%;
+	letter-spacing: -0.015em;
+}
+
+@media (min-width: 900px) {
+	.page-landing .landing-hero {
+		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+		gap: var(--s-12);
+		padding: var(--s-8) 0 var(--s-16);
+	}
+}
+
+/* ---- The art panel: football leather, dimmed, with UI cards floating on it */
+
+.page-landing .art-panel {
+	position: relative;
+	aspect-ratio: 1 / 0.92;
+	border-radius: 28px;
+	overflow: hidden;
+	background:
+		radial-gradient(120% 90% at 85% 0%, rgba(105, 252, 186, 0.28), transparent 55%),
+		linear-gradient(180deg, rgba(5, 10, 8, 0.72), rgba(5, 10, 8, 0.9)),
+		url("../../../../static/img/pattern.jpg") center / 360px auto;
+	box-shadow: var(--sh-3);
+	isolation: isolate;
+}
+
+.page-landing .art-helmet {
+	position: absolute;
+	left: 22px;
+	top: 20px;
+	width: 48px;
+	height: 48px;
+	filter: drop-shadow(0 0 16px rgba(105, 252, 186, 0.6));
+}
+
+.page-landing .art-card {
+	position: absolute;
+	padding: 14px 16px;
+	border-radius: 16px;
+	background: rgba(18, 24, 22, 0.86);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: #e6eeea;
+	box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.7);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	font-size: 0.88rem;
+}
+
+.page-landing .art-card .tag-ncaa {
+	color: #ff7d91;
+	background: rgba(255, 125, 145, 0.14);
+}
+
+.page-landing .art-card .pill-good {
+	background: rgba(67, 221, 155, 0.14);
+	color: #43dd9b;
+}
+
+.page-landing .art-card .delta-up {
+	color: #43dd9b;
+}
+
+.page-landing .art-card-a {
+	left: 8%;
+	right: 14%;
+	top: 30%;
+	animation: float 7s ease-in-out infinite;
+}
+
+.page-landing .art-card-b {
+	right: 7%;
+	top: 56%;
+	width: 46%;
+	animation: float 8s ease-in-out -2s infinite;
+}
+
+.page-landing .art-card-c {
+	left: 8%;
+	bottom: 8%;
+	width: 36%;
+	animation: float 9s ease-in-out -4s infinite;
+}
+
+.page-landing .art-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.page-landing .art-muted {
+	color: #9aa9a3;
+	font-size: 0.78rem;
+	font-weight: 600;
+}
+
+.page-landing .art-pick {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-weight: 700;
+}
+
+.page-landing .art-pick .pill {
+	margin-left: auto;
+}
+
+.page-landing .art-mult {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 9px;
+	background: #69fcba;
+	color: #03140c;
+	font-weight: 900;
+	font-stretch: 78%;
+}
+
+.page-landing .art-score {
+	display: flex;
+	justify-content: space-between;
+	font-weight: 700;
+}
+
+.page-landing .art-score b {
+	font-size: 1.15rem;
+	font-stretch: 78%;
+}
+
+.page-landing .art-big {
+	font-size: 2.4rem;
+	font-weight: 900;
+	font-stretch: 72%;
+	line-height: 1;
+	margin: 2px 0;
+}
+
+.page-landing .art-big small {
+	font-size: 0.4em;
+	color: #9aa9a3;
+}
+
+@media (max-width: 520px) {
+	.page-landing .art-card {
+		padding: 10px 12px;
+		font-size: 0.8rem;
+	}
+
+	.page-landing .art-card-a {
+		left: 6%;
+		right: 6%;
+	}
+
+	.page-landing .art-card-b {
+		width: 48%;
+		right: 4%;
+	}
+
+	.page-landing .art-card-c {
+		left: 6%;
+		width: 38%;
+	}
+
+	.page-landing .art-big {
+		font-size: 1.9rem;
+	}
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(-8px);
+	}
+}
+
+/* ---- The three explainer cards */
+
+.page-landing .landing-explain {
+	padding-bottom: var(--s-8);
+}
+
+.page-landing .explain {
+	display: flex;
+	flex-direction: column;
+	padding: var(--s-5);
+}
+
+.page-landing .explain-art {
+	display: grid;
+	place-items: center;
+	height: 140px;
+	margin-bottom: var(--s-5);
+	border-radius: 14px;
+	background: var(--bg-sunken);
+	overflow: hidden;
+}
+
+.page-landing .explain-title {
+	margin-bottom: var(--s-2);
+	font-size: 1.15rem;
+	font-weight: 800;
+}
+
+.page-landing .explain-text {
+	margin: 0;
+	color: var(--fg-muted);
+	font-size: 0.95rem;
+}
+
+/* Spread: two chips with the handicap between them */
+.page-landing .spread-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.page-landing .spread-team {
+	display: inline-flex;
+	align-items: center;
+	height: 32px;
+	padding: 0 12px;
+	border-radius: 9px;
+	background: var(--team-bg);
+	color: var(--team-fg);
+	font-size: 0.85rem;
+	font-weight: 800;
+}
+
+.page-landing .spread-line {
+	padding: 4px 8px;
+	border-radius: 7px;
+	background: var(--bg-elev);
+	box-shadow: var(--sh-1);
+	font-weight: 850;
+	font-variant-numeric: tabular-nums;
+}
+
+.page-landing .spread-scale {
+	position: relative;
+	width: 72%;
+	height: 6px;
+	margin-top: 18px;
+	border-radius: 3px;
+	background: var(--line-strong);
+}
+
+.page-landing .spread-scale span {
+	position: absolute;
+	left: 18%;
+	width: 30%;
+	top: 0;
+	bottom: 0;
+	border-radius: 3px;
+	background: var(--brand);
+}
+
+.page-landing .art-spread {
+	align-content: center;
+	gap: 0;
+}
+
+/* Total: a gauge with a needle past the line */
+.page-landing .art-total {
+	align-content: center;
+	gap: 6px;
+}
+
+.page-landing .total-gauge {
+	width: 170px;
+	height: auto;
+	overflow: visible;
+}
+
+.page-landing .gauge-track,
+.page-landing .gauge-under {
+	fill: none;
+	stroke-width: 14;
+	stroke-linecap: round;
+}
+
+.page-landing .gauge-track {
+	stroke: color-mix(in srgb, var(--ou) 30%, transparent);
+}
+
+.page-landing .gauge-under {
+	stroke: var(--line-strong);
+}
+
+.page-landing .gauge-needle {
+	stroke: var(--fg);
+	stroke-width: 3.5;
+	stroke-linecap: round;
+}
+
+.page-landing .gauge-hub {
+	fill: var(--fg);
+}
+
+.page-landing .total-labels {
+	display: flex;
+	align-items: baseline;
+	gap: 14px;
+	color: var(--fg-faint);
+	font-size: 0.72rem;
+	font-weight: 750;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.page-landing .total-labels b {
+	color: var(--ou);
+	font-size: 1.1rem;
+	letter-spacing: 0;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Confidence: a rail of point values */
+.page-landing .conf-rail {
+	display: grid;
+	gap: 6px;
+	width: 78%;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.page-landing .conf-rail li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.page-landing .conf-rail b {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 22px;
+	border-radius: 6px;
+	background: var(--brand);
+	color: var(--brand-ink);
+	font-size: 0.75rem;
+	font-weight: 850;
+	flex: none;
+}
+
+.page-landing .conf-rail span {
+	width: var(--w);
+	height: 22px;
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	border-radius: 6px;
+	background: var(--bg-elev);
+	box-shadow: var(--sh-1);
+	color: var(--fg-muted);
+	font-size: 0.7rem;
+	font-weight: 700;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.page-landing .conf-rail li:nth-child(3) {
+	opacity: 0.7;
+}
+
+.page-landing .conf-rail li:nth-child(4) {
+	margin-top: 6px;
+	opacity: 0.55;
+}
+
+/* ---- Closing call to action */
+
+.page-landing .landing-close {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--s-4);
+	margin-top: var(--s-4);
+	padding: var(--s-6);
+	background:
+		radial-gradient(80% 140% at 100% 0%, var(--brand-soft), transparent 60%),
+		var(--bg-elev);
+}

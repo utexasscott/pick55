@@ -1,0 +1,213 @@
+# The redesign: `r/`
+
+**Shape: VERTICAL (the `r/` site).** A second, app-like front end for players, living beside the classic site so both run at once: classic at `/pick55/`, redesign at `/pick55/r/`. Same database, same session (a login on either site is a login on both), same domain classes. Admin pages are not part of it. Owner's brief (2026-09-25): "modern and app-like... don't just copy code... asynchronous page interactions, elegant transitions, and seamless navigation... users who navigate to the site while games are being played might have different interests than users who navigate the site after the week is over or when they are making picks. Think like a high end web designer."
+
+This document is the contract every part of `r/` is built against. The turn that changes a piece of `r/` updates this file in the same commit.
+
+## 1. Principles
+
+1. **The site knows what time it is.** Every player-facing surface is shaped by the *moment* (section 4): are picks open, are games being played, is the week over, is the season over. The same URL leads with different content in different moments.
+2. **Real pages, app feel.** Every page is still a real `.php` file under `r/` (no router). The shell turns link clicks into fetches of a page fragment and swaps it in with a transition, so navigation never flashes white; a hard reload of any URL works identically. Progressive enhancement, never a client-only app.
+3. **Reuse the domain, redo the presentation.** Models, `WeekResults`, `WeekPayouts`, `AllTimeStats`, `SeasonHistory`, `Auth`, `Alert`, `Cache`, `GameScore` are reused as they are. HTML, CSS and JS are written new. Nothing in the classic site is edited for the redesign except purely additive helpers on shared classes, and only when unavoidable (note them in section 9).
+4. **Fast by default.** No jQuery, no Bootstrap, no Font Awesome. One CSS file, one JS runtime, per-area modules loaded once. Chart.js 3.5.1 (already vendored at `static/js/chart.js`) is the only library.
+5. **Mobile first, desktop finished.** Most picks are made on a phone on a Saturday morning. Bottom tab bar on small screens, top bar on wide screens. Every table has a phone treatment (cards or horizontal scroll with a pinned first column).
+6. **Light and dark.** Both themes, following the system with a toggle that persists in `localStorage`.
+7. **Honest motion.** Transitions communicate what changed (a score ticking, a rank moving, a card entering). `prefers-reduced-motion` turns motion into instant state changes.
+
+## 2. Layout
+
+```
+r/
+  index.php                  guest landing / signed-in "Today"
+  rules.php
+  auth/  login.php signup.php forgot.php reset.php check.php verify.php logout.php
+  account/index.php          profile + friends
+  season/index.php           my season
+  season/standings.php
+  season/week/pick.php       make picks
+  season/week/results.php    week results (live, recap)
+  stats/  index.php fame.php shame.php leaderboard.php seasons.php
+  api/                       JSON endpoints (section 6)
+  static/css/app.css         design system + shell (foundation-owned)
+  static/css/pages/*.css     one file per area, loaded by the page
+  static/js/app.js           runtime: navigation, transitions, polling, toasts, theme
+  static/js/pages/*.js       one module per area, registered with P55.page()
+inc/Pick55/R/                the redesign's PHP layer (autoloaded as Pick55\R\*)
+  Shell.php                  layout, nav, partial rendering, guards
+  Context.php                the moment (section 4)
+  Fmt.php                    formatting helpers
+  Icons.php                  inline SVG icons
+  Api.php                    JSON endpoint helpers
+  Today.php                  Today page data: season board, walls, week recap, live game strip, sparkline
+  SeasonStandings.php        season standings computation (was inline in the classic page)
+```
+
+Every `r/` page starts `require_once __DIR__ . '/../inc/_inc.php'` (relative depth as needed), then `use Pick55\R\Shell;`, then `Shell::guard()` (or `guardGuest()`), then builds content and ends with `print $shell->render();`.
+
+Page CSS stays loaded after the first visit to its area (the runtime never unloads a stylesheet), so every rule in `static/css/pages/*.css` is scoped under the page's wrapper class: `.page-<nav key>` (for example `.page-today`, `.page-results`), which the shell puts on the `.page` element, or the class given to `setPageClass()`.
+
+## 3. The shell (`Pick55\R\Shell`)
+
+| Member | Does |
+|---|---|
+| `__construct()` | Reads the moment (`Context::get()`) once into `$shell->ctx`; nav badges come from it. |
+| `link($rel)` | `config('base_url') . 'r/' . $rel`. Every internal href goes through it. |
+| `classicLink($rel)` | `config('base_url') . $rel`, for the footer's "Classic site" and the admin link. |
+| `asset($rel)` | URL of a file under `r/static/` with `?v=<filemtime>`. |
+| `setTitle($t)` | Document title, `"$t · Pick55"` (`getTitle()` returns it). |
+| `setNav($key)` | Which tab is active: `today`, `picks`, `results`, `standings`, `stats`, `account`, or `none` (auth pages, the guest landing). |
+| `setContent($html)` | The page's content; the shell wraps it (and the flash alerts) in `<div class="page page-<nav>">` inside `<main id="app-main">`. |
+| `setPageClass($class)` | Extra classes on that `.page` wrapper (`page-auth` centers a single card; `page-narrow` caps the width at 720 px). |
+| `setModule($name, array $props = [])` | The JS module to init after render and its props (JSON in `data-props` on the `.page` wrapper, and in the fragment's `module`). |
+| `addStyle($rel)`, `addScript($rel)` | Per-area assets, `$rel` relative to `r/static/` (`addStyle('css/pages/today.css')`); versioned by `filemtime` so no manual bumps. |
+| `render()` | Full document, or, when `Shell::isPartial()`, the JSON fragment below. Flash alerts (`Alert`) are rendered inside the fragment in both cases: success and info become toasts when JS runs, errors and warnings stay on the page. Sends `Vary: X-P55-Partial`. |
+| `static guard()` | Not logged in → `redir('r/auth/login.php?r=' . urlencode(current r/ path))` (no `r` for `r/` itself). Login honours `r` when `safeReturn()` accepts it. |
+| `static guardGuest()` | Logged in → `redir('r/index.php')`. |
+| `static isPartial()` | `X-P55-Partial: 1` request header or `_partial=1` query. |
+| `static empty($title, $text = '', $actions = [], $icon = 'info')` | The standard empty state (no season, not a player, nothing yet), returned as HTML. `$actions`: list of `['label', 'href' (full URL), 'kind' => 'primary'|'ghost', 'native' => bool]`. Replaces the classic `inactive.php` / `unauthorized.php` pages. |
+| `static ring(array $rings, $center_html = '', $size = 96, $label = '')` | The `.progress-ring` component: concentric rings, outer first, each `[fraction 0..1, tone]` with tone `brand|accent|good|warn|bad|live`; repaint one from JS with `P55.ring(el, index, fraction)`. |
+| `static badge($value)` | A tab badge's markup (`'LIVE'`, `'done'`, or short text like `'2d'`); app.js renders the same markup. |
+| `static currentUrl()`, `currentRel()`, `basePath()` | The request URI without `_partial` (`/pick55/r/season/standings.php?id=18`), the same relative to `r/` (`season/standings.php?id=18`), and the site's base path (`/pick55/`). |
+| `static safeReturn($r)` | Validates a `?r=` value: a relative `.php` path under `r/` with an optional plain query, never `auth/` or `api/`, never `..` or `//`; else null. |
+| `const TABS` | The five main tabs: key => [rel path, label, icon]. |
+
+**Partial fragment contract** (what `app.js` consumes):
+
+```json
+{
+  "title": "Week 3 Results · Pick55",
+  "url": "/pick55/r/season/week/results.php?id=230",
+  "nav": "results",
+  "badges": {"results": "LIVE", "picks": "2d"},
+  "authed": true,
+  "mode": "live",
+  "html": "<div class=\"page page-results\" data-module=\"results\" data-props='…'>…</div>",
+  "module": {"name": "results", "props": {...}},
+  "styles": ["//127.0.0.1/pick55/r/static/css/pages/results.css?v=1727..."],
+  "scripts": ["//127.0.0.1/pick55/r/static/js/pages/results.js?v=1727..."]
+}
+```
+
+`authed` is whether a user is signed in; when it differs from the page the fragment lands on, `app.js` does a full load (the shell's chrome differs). `mode` is `Context::mode`. `module` is null for pages without one. Badge values: `picks` is the time left before the pick week's first kickoff in one unit (`"5d"`, `"4h"`, `"12m"`) while the viewer's picks are incomplete, or `"done"` (a check) once they are complete; `results` is `"LIVE"` while a live week exists. Badges only appear for players of the active season.
+
+`redir()` on a partial request behaves normally (a 302); `fetch` follows it and the final page answers with its own fragment because the header is carried. A redirect that leaves `r/` (never intended) makes `app.js` fall back to `location.assign`.
+
+**Runtime (`app.js`)**, exposed as `window.P55`:
+
+- Intercepts clicks on same-origin links under `r/` whose path ends in `.php` or `/` (not `target=_blank`, not `download`, not `data-native`, no modifier keys, not a same-page `#hash`), fetches the fragment, swaps `#app-main` with a View Transition when available (a CSS enter animation otherwise), updates title, nav, badges, the "Classic site" links, history, and scroll (top for new pages, restored on back/forward), then moves focus to `#app-main`. A thin progress bar shows when the fetch takes more than 120 ms. Links with `data-prefetch` (the main tabs) are fetched on hover or touch and the fragment is used if clicked within 10 s. Anything unexpected (network error, non-JSON reply, redirect out of `r/`, sign-in change) falls back to `location.assign(href)`. The sign-out link is `data-native`.
+- `P55.page(name, initFn)` registers a module; after each swap the runtime calls the module named by the fragment with `(rootEl, props)` (`rootEl` is the `.page` wrapper) and calls the previous module's returned teardown function (so polls and listeners stop). A module script loaded after the page (its `defer` tag, or appended on navigation) starts when it registers.
+- `P55.navigate(href, opts)` (`opts.replace`, `opts.scroll`: `'top'|'keep'|number`, `opts.focus`, `opts.transition`) and `P55.reload()` (re-fetch the current URL and swap in place, keeping scroll and focus).
+- `P55.fetchJSON(url, opts)` adds `X-Requested-With: fetch`; a plain-object `opts.body` is sent as JSON (POST); resolves with the parsed reply, rejects with an `Error` carrying `.status` and `.data` for a 4xx/5xx, and handles 401 by sending the user to login with `r` set.
+- `P55.poll(fn, ms)` returns a stopper; pauses when `document.hidden`, resumes and fires immediately on visibility (and on `online`). If `fn` returns or resolves to a number, that becomes the next interval. The stopper also has `.now()` and `.every(ms)`.
+- `P55.toast(text, kind, opts)` (kind `success|error|warning|info|offline`; `opts.timeout`, `opts.action = {label, fn}` for undo) returns `{close}`; `P55.confirm(text, {title, ok, cancel, danger})` resolves true/false (a `<dialog>`, not `window.confirm`).
+- `P55.theme.get()` / `.set('system'|'light'|'dark')` / `.resolved()` (persisted in `localStorage['p55-theme']`, applied before first paint by an inline script in the head; fires `p55:theme`), and `P55.motion.reduced`.
+- Forms with `data-async` post via `fetch` and expect a fragment (swapped in; replace-in-place when the URL is unchanged), `{redirect}`, or `{error}` (a toast). Forms with `data-validate` get inline validation: each input sits in a `.field` with a `.field-error`, messages from `data-msg-required`, `data-msg-type`, `data-msg-length` or the browser's.
+- Small helpers: `P55.countUp(el, to, {format, duration})`, `P55.flash(el)` (a change highlight), `P55.ring(ringEl, i, fraction)`, `P55.relTime(date)`, `P55.countdown(date)`, `P55.fmt.{num, money, ordinal, signed}`, `P55.esc(str)`, `P55.icon(name)` (check, x, info, alert-triangle, wifi-off, undo), `P55.setBadges(badges)`, `P55.enhance(el)`, `P55.$`, `P55.$$`, `P55.link(rel)`.
+- Live text: elements with `data-countdown="<ISO>"` or `data-reltime="<ISO>"` (use `Fmt::iso()`) are kept current every 30 s; a countdown that reaches zero gets `.is-past` and dispatches a bubbling `p55:deadline` event. After every navigation the runtime dispatches `p55:navigate` on `document`.
+
+**CSS components shipped in `app.css`** (use these before writing page CSS):
+
+- Layout: `.page-head` (`.page-title`, `.page-sub`), `.eyebrow`, `.section-title`, `.grid` (+ `.grid-2`, `.grid-3`, `.grid-main-side` from 900 px), `.stack`, `.stack-sm`, `.stack-lg`, `.cluster`, `.spacer`, `.page-narrow`, `.page-auth` with `.auth-card` (`.auth-icon`, `.auth-title`, `.auth-sub`, `.auth-foot`).
+- Surfaces: `.card` (+ `.card-flush`, `.card-head`, `.card-title`, `.card-link`, `.card-foot`; `a.card` lifts on hover), `.empty` (from `Shell::empty`), `.alert` (`-success|-error|-warning|-info`), `.dialog`, `.toast`, `.skeleton`, `.menu`.
+- Data: `.stats` > `.stat` (`.stat-label`, `.stat-value`, `.stat-sub`; `.stat-lg`), `.table` in `.table-wrap` (+ `.table-sticky` pins the first column, `.table-compact`, `th[data-sort]`, `th[aria-sort]`, `.num`, `.center`), `.list` (rows as `li` or `.list-row`), `.rank` (+ `.rank-1..3` gold/silver/bronze), `.delta-up`, `.delta-down`, `.delta-flat`, `.progress-ring` (from `Shell::ring`), `.num` (tabular figures).
+- Marks: `.row-me`, `.row-friend` (on `tr`, `li` or `div`), `.friend-mark`, `.player-name`, `.pill` (+ `-brand|-good|-bad|-warn|-live|-accent|-outline`), `.tag` (+ `.tag-nfl|-ncaa|-ou|-spread`), `.badge-live`, `.live-dot`, `.chip-team` (set `--team-bg`, `--team-fg` = `color_2`, `--team-line` inline; `.is-muted`), `.avatar` (`.avatar-lg`).
+- Controls: `.btn` (+ `.btn-primary|-ghost|-quiet|-danger`, `.btn-sm|-lg`, `.btn-block`, `.btn-icon`; `aria-busy="true"` shows a spinner), `.seg` (segmented control; the active child has `aria-pressed="true"`, `aria-current="page"`, `aria-selected="true"` or `.is-active`; `.seg-sm`, `.seg-block`), `.field` (`.field-label`, `.field-hint`, `.field-error`, `.is-invalid`, `.field-row`), `.input`, `.select`, `.textarea`.
+- Motion and text: `.enter` (stagger with `style="--i: n"`), `.flash`, `.muted`, `.faint`, `.small`, `.nowrap`, `.truncate`, `.text-good|-bad|-warn|-live|-brand`, `.sr-only`, `.hide-phone`, `.hide-desktop`, `.mt-0`, `.mb-0`.
+- Formatting (`Pick55\R\Fmt`, plain text, escape with `h()`): `money($amount, $blank_zero = false, $signed = false)` (whole dollars via `Snippets\Money`), `ordinal($n)`, `num($n, $decimals = 0)`, `signed($n)` ("+3", "−2"), `kickoff($date, $time = null, $now = null)` ("Today 7:15 PM", "Tomorrow 3:25 PM", "Yesterday …", "Sat 11:00 AM" within six days, else "Sat, Oct 4 · 11:00 AM"), `countdown($datetime, $now = null)` ("2d 4h", "4h 12m", "12m", "0m" once past), `dateLong($datetime, $with_time = false)` ("Saturday, September 27 at 11:00 AM"), `time($datetime)`, `iso($datetime)` (for `data-countdown`/`data-reltime`), `ts($datetime)`, `name(User)` (`getDisplayName()`), `initials(User)`, `pct($num, $den = 100, $decimals = 1)` ("54.2%", "—" for a zero denominator), `record($right, $wrong)` ("34–18").
+- Icons: `Icons::svg($name, $class)` gives `<svg class="icon icon-<name> …">`, 1.25em square; names: home, list-checks, trophy, bar-chart, user, settings, log-out, log-in, chevron-left/right/up/down, check, x, clock, flame, grip-vertical, arrow-up, arrow-down, sun, moon, monitor, info, alert-triangle, dollar-sign, users, star, medal, calendar, external-link, refresh, search, plus, minus, football, menu, book-open, egg, list-ordered, undo, lock, mail, key, wifi-off, trending-up, trending-down, target, zap, eye, circle-dot, shield.
+
+## 4. The moment (`Pick55\R\Context`)
+
+Computed once per request for the signed-in player, from the active season:
+
+| Field | Meaning |
+|---|---|
+| `mode` | `guest`, `offseason` (no active season, or the player is not in it, or nothing left in it), `pick`, `live`, `recap`, `waiting` |
+| `user`, `season`, `is_player`, `now` | the viewer (User or null), the active Season (or null), whether the viewer is linked to it, and the timestamp the moment was computed for |
+| `pick_week` | the week `canUserPick()` is true for (the latest one, as `Season::getPickWeek()` and pick.php choose), or null |
+| `live_week` | the latest week whose results are visible and which still has an undecided game (any viewer; only players get the badge and `my_live`) |
+| `recap_week` | the latest week with every game decided |
+| `next_week`, `next_opens_at` | the first week (by `week_num`) whose `picks_due_date` (when picks open) is in the future, and that datetime |
+| `my_picks_progress` | for `pick_week`: `[week_id, games, sides (games with a side or a guaranteed pick), values (distinct 1–10 point values placed), values_needed (min(10, games)), values_placed, complete, due_at (first kickoff)]` |
+| `my_live` | for `live_week`: `[week_id, points, rank, rank_label ("–" until a game is decided), behind_label, players, right, wrong, unknown, games, games_left, decided, in_play (ESPN state "in"), expected, payout, has_payouts, leader_points, behind, win_pct]` from `WeekResults::get` (cached) |
+
+Methods: `Context::get()` (memoized per request), `Context::forget()` (drop it after a save), `Context::at($timestamp)` (the moment at another time, for CLI checks), `info(Week)` (a week's facts: `id, num, name, is_playoffs, games, undecided, first_game_at, last_game_at, opens_at, can_pick, can_see_results`), `weeks()` (every active-season week's `info`), `progress(Week)`, `live(Week)`, `results(Week)` (the overall `WeekResults::get` for a week with exactly the results page's arguments, so the cache entry is shared), `players()` (every linked player, user_id => User), `friendIds()` (user_id => true for the viewer's friends), `badges()`, `weekArray(Week)` and `toArray()` (JSON-safe forms).
+
+Cost per request: the active season, its weeks with formats, and one grouped query over their games from which every week's `canPick()`/`canSeeResults()` is derived with the model's exact rules; one query for the viewer's picks in the pick week; `WeekResults::get` only when a live week exists.
+
+Mode precedence: `pick` when a pick week exists and my picks are incomplete; otherwise `live` when a live week exists; otherwise `pick` when a pick week exists; otherwise `recap` when a recap week's last kickoff was within the last 10 days; otherwise `waiting` (next week known) or `offseason`.
+
+Nav badges come from the moment: **Picks** carries the time left ("2d" / "4h" / "12m", titled "Picks due in …") or a check when done; **Results** carries "LIVE" while `live_week` exists.
+
+## 5. What each page does in each moment
+
+**Today (`r/index.php`, signed in).** The hero card is the moment: in `pick`, "Your picks for Week 4 are due Saturday 11:00 AM" with a progress ring (sides chosen, values placed) and one primary action; in `live`, my live scoreboard (points, rank, expected $, games left) over a strip of the games in play with my side marked and whether it is covering, refreshing every 60 s; in `recap`, my finish, points, winnings and standings movement, then "Picks for Week 5 open Tuesday noon"; in `waiting`/`offseason`, the countdown or a quiet note. Below the hero: the standings top five with me pinned, a season sparkline of my weekly points, recent walls of fame/shame entries if any this season. Guests get the landing page (section 5, last item).
+
+As built: when the other moment also exists, a one-line bar sits under the hero (in `pick` with a live week: "Week 3 · rank 12th · 18 pts" linking to results; in `live` with complete picks for the next week: "Week 4 picks are in"). The standings board is `Today::board()` (the standings page's rule, one grouped query; movement is the rank change since before the latest counted week). Walls are `Today::walls()` (complete weeks, real picks only, `AllTimeStats` thresholds: perfect ≥ 55, honor roll ≥ 50, goose egg 0, rough week ≤ 9). The live strip is `Today::strip()`: in play first, then upcoming, then finished, each game with my pick, its point value and whether it is winning. `today.js` polls `api/today.php` every 60 s while a live week exists and repaints points, rank, expected $, games left and the strip; when the mode, the live or pick week, or a game's state changes (or a countdown on the page reaches zero) it re-renders the page with `P55.reload()`. The not-a-player and no-season cases are `Shell::empty` states.
+
+**Make Picks (`r/season/week/pick.php`).** The 14 games as cards in a single ordered list. Two gestures: tap a side (team chip in the team's colours, or OVER/UNDER); drag the card's handle to reorder, which assigns 10…1 to the first ten and 0 to the rest (Pointer Events, works with touch, plus keyboard/​button up-down for accessibility). Point values are shown as a rail on the left that stays put while cards move. Guaranteed picks (playoffs, `football_guaranteed_points`) render as locked check cards at the bottom of the rail. Every change saves after a 400 ms debounce through `api/save-picks.php`, with a status pill (saving / saved 12:04 / offline, retrying) and undo for the last move. Header shows kickoff deadline as a live countdown and the progress ring. A game card shows league, kickoff (relative when within 48 h), the line, and a "consensus" placeholder that stays hidden until the week locks. When the week is not pickable the page redirects to results (locked) or Today.
+
+**Week Results (`r/season/week/results.php?id=&pool=`).** Sections, in this order: the header (week name, format description, payout summary as chips, pool switcher as segmented control, week picker); **Standings** (rank, player, points, right, win probability or place probabilities as the format dictates, expected $, winnings; me pinned as a sticky row when off-screen; friends marked; sort by tapping headers); **Games** in kickoff order grouped by day, each a card with live score and status, both sides with their pickers (names with multipliers, my pick outlined, collapsed after five with "show all"), a leading marker while live, and the *what-if* control while undecided (what-ifs stay URL parameters `g<id>=1|2` so they are shareable and `WeekResults` handles them; switching one is a partial navigation); **Picks by point value** as a grid; **Expected winnings** chart when the timeline exists. While any game is undecided the module polls `api/week.php` every 60 s (5 min when nothing is in play) and paints scores, statuses and leading markers in place; when a result has been set it re-fetches the fragment and swaps it with a transition, keeping scroll. The recap moment adds a "Week in one line" summary at the top: winner(s), my finish, biggest swing.
+
+**Standings (`r/season/standings.php?id=`).** Leaderboard first (place, player, points, pct, record, winnings, week-by-week points as a mini bar strip per row), with a season picker. Then a segmented control switching, without a page load, between the analytical tables: NFL vs NCAA, Over/Under vs Spread, Pick value stats, and the weekly score distribution chart. Computation moves into `Pick55\R\SeasonStandings` (one grouped query, not one per player) and stays identical in meaning to the classic page (regular-season weeks only, paid players while the season is active).
+
+**My Season (`r/season/index.php?id=`).** A week timeline (one row per week: state, my rank, my points, ten pick results as dots) that reads at a glance on a phone; charts of points by league and by bet type; the Seasons history table (from `SeasonHistory`).
+
+**Stats (`r/stats/*.php`).** Five routes kept, with a sub-nav segmented control. Record book as tiles and a grouped list, walls as plaques, leaderboards with the min-weeks filter and best/worst toggle, best seasons as a ranked list. Same numbers as the classic pages (they come from `AllTimeStats`).
+
+**Account (`r/account/index.php`).** Profile form saved asynchronously; friends as chips with search-to-add and one-tap remove (async), suggested friends. Friends are marked on standings and results.
+
+**Rules (`r/rules.php`).** A readable document with a sticky section index; the season's week/format/payout table from the formats.
+
+**Auth (`r/auth/*`).** Centered single-card flows with inline validation and the same server logic (`Auth::*`). Login honours `?r=`. `verify.php`/`logout.php` mirror the classic ones and redirect within `r/`.
+
+As built: the forms are `data-async data-validate`, so errors come back in place and a successful sign-in reloads into the signed-in shell. Differences from the classic pages, all inside `r/`: a failed sign-in keeps the typed email and a failed signup keeps email and names (session, never the password); a forgot-password error returns to `forgot.php` (the classic page sends it to signup); `reset.php` and `verify.php` ignore tokens shorter than 16 characters (the classic `LIKE` would match an empty token); sign-out flashes "You have signed out." The verify and reset emails are built by `Auth` and still link to the classic `auth/verify.php` and `auth/reset.php`, which work the same (the user then lands on the classic site); pointing them at `r/` needs a change to `Auth` and is left for the cutover.
+
+**Landing (`r/index.php`, guest).** Brand, one sentence, sign in / sign up, and an explainer of spreads, totals and confidence built as three illustrated cards. Existing images: `static/img/helmet-seafoam.png`, `helmet-white.png`, `boucher.jpg`, `pattern.jpg`.
+
+## 6. JSON API (`r/api/`)
+
+All endpoints: session auth, `Api::requireUser()`; `Api::requireSameOrigin()` (accepts `Sec-Fetch-Site: same-origin` or the `X-Requested-With` header); JSON body via `Api::input()`; errors as `{"error": "..."}` with a 4xx status; never HTML.
+
+`Pick55\R\Api` as built: `guard($method = null)` (same origin, then the method when given, then signed in; returns the User), `requireSameOrigin()` (403), `requireMethod($method)` (405), `requireUser()` (401 `{"error", "login"}`), `input($key = null, $default = null)` (the JSON object body, or `$_POST` for form bodies; 400 on malformed JSON), `json($data, $status = 200)` and `error($message, $status = 400)` (both send and exit; `Cache-Control: no-store`), and `boot()`, which the first helper calls: from then on PHP warnings and uncaught exceptions become a logged `{"error": "Unexpected error."}` 500.
+
+| Endpoint | Returns |
+|---|---|
+| `save-picks.php` (POST `{week_id, picks: [{game_id, option, mult}]}`) | `{ok, saved_at, picks}` after enforcing the classic rules: options 0–3 valid, each of 1–10 used once, everything else 0, only while `canUserPick`. Query-builder bindings, one transaction. |
+| `week.php?id=` | `{week_id, fetched_at, any_live, num_unknowns, games: {id: {away_score, home_score, state, completed, label, leading_option, correct_option}}, standings: [{user_id, rank, points, right, expected}]}`. The standings come from `WeekResults::get` (cached) so painting them every minute is cheap. |
+| `today.php` (GET) | `Context::toArray()` (`mode, now, season, is_player, pick_week, live_week, recap_week, next_week` as `{id, num, name, games, undecided, opens_at, first_game_at, last_game_at, first_game_label}`, `next_opens_at, my_picks_progress, my_live` (+ `expected_label`), `badges`) plus `fetched_at` and `games`: the live week's `Today::strip()` rows `{id, league, type, state, label, kickoff, kickoff_at, away, home, away_color, home_color, away_score, home_score, line, my_option, my_mult, my_label, status, decided}` with status `covering|trailing|even|pending|right|wrong|auto|none`. Times are ISO 8601. |
+| `friends.php` (POST `{action: add|remove, user_id}`) | `{ok, friends: [...]}`. |
+
+## 7. Design system (`app.css`)
+
+Tokens on `:root`, redefined under `[data-theme="dark"]` and `@media (prefers-color-scheme: dark)` when no explicit theme is set. Names: `--bg`, `--bg-elev`, `--bg-sunken`, `--fg`, `--fg-muted`, `--fg-faint`, `--line`, `--brand` (seafoam, from the helmet: `#69FCBA` on dark, a deeper `#0e9f6e` on light for contrast), `--accent` (the brand's counterpart for links and focus), `--good`, `--bad`, `--warn`, `--live` (a red that pulses), `--gold/--silver/--bronze`, `--nfl`, `--ncaa`, `--ou`, `--spread`, radii `--r-1..3`, shadows `--sh-1..2`, spacing on a 4 px grid, `--ease` and `--dur-1..3`.
+
+Also shipped: `--bg-hover`, `--bg-glass` (the translucent bars), `--line-strong`, `--brand-strong` (hover), `--brand-ink` (text on a brand fill), `--brand-text` (brand-colored text that passes contrast), `--good-soft`, `--bad-soft`, `--warn-soft`, `--live-soft`, `--accent-soft`, `--brand-soft`, `--gold-ink`/`--silver-ink`/`--bronze-ink`, `--row-me`, `--row-friend` (opaque, so sticky cells stay solid), `--toast-bg`/`--toast-fg`, spacing `--s-1..--s-16` (4 px steps: 1, 2, 3, 4, 5, 6, 8, 10, 12, 16), `--ease-in`, `--topbar-h`, `--tabbar-h`, `--gutter` (16 px on phones, 24 px from 900 px), `--maxw` (1120 px). Dark is `:root[data-theme="dark"]` and `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }`; page CSS should only use tokens so it themes for free.
+
+Type: one variable UI family from Google Fonts with `display=swap` and tabular numerals for every number column; a display weight for the big scores. Base 15 px on phones, 16 px from 768 px. As built: **Archivo** (`wdth` 62–125, `wght` 100–900), preconnected; headings and big numbers use `font-stretch` 72–88 % and weights 800–900 for a scoreboard look, body text stays at normal width. The top bar and tab bar switch at 900 px.
+
+Components: `.card`, `.stat` (value/label/sub), `.pill`, `.seg` (segmented control), `.tabbar` (bottom, phone) / `.topbar`, `.table` with `.table-wrap` scroll and sticky first column, `.row-me`, `.row-friend`, `.chip-team` (background from the team colours, text from `color_2`), `.progress-ring`, `.toast`, `.dialog`, `.skeleton`, `.badge-live` (pulsing dot), `.delta-up/.delta-down`.
+
+Motion: `view-transition` names on `#app-main`; `.enter` keyframes for cards; score changes use `P55.flash`; ranks that move animate with FLIP in the module.
+
+## 8. Conventions
+
+- Tabs, LF, `<?=`, `h()` for every dynamic value in HTML, `json_encode($x, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)` inside attributes.
+- PHP 7.4 syntax only (Apache runs 7.4): no `match`, enums, named arguments, `str_contains`, `?->`, or readonly.
+- Vanilla ES2018 JS in modules registered with `P55.page`; no globals besides `P55`.
+- Money through `Pick55\Snippets\Money` or `Fmt::money`; whole dollars.
+- Names through `User::getDisplayName()`; never the email.
+- Every list of players marks the viewer (`.row-me`) and their friends (`.row-friend`).
+- No classic asset (`static/css/global.css`, Bootstrap, jQuery, Font Awesome) is loaded by any `r/` page.
+
+## 9. Touches to shared code
+
+None yet. List here any additive change to a class outside `inc/Pick55/R/` made for the redesign, with the reason. (The foundation touched no shared code.)
+
+## 10. Local testing
+
+- Apache serves the redesign at `http://127.0.0.1/pick55/r/`. Syntax check with `C:\php\php7.4.33\php.exe -l <file>`.
+- Local-only test player (created 2026-09-25 by `seed-test-data.php` in Claude's scratchpad, never on production): `claude-test@example.com` / `pick55-test-2026`, user id 2063, a paid player of the 2026 season and linked to 2025, with random picks in weeks 1–3.
+- Local data state (2026-09-25): 2026 season active; week 3 (id 230, 5 pools) is **live**; week 4 (id 229) was given week 3's 14 games shifted a week later and `picks_due_date` in the past, so it is **pickable**. That gives `live` and `pick` moments at once; the Today precedence rule decides.
+- Every Today moment can be rendered from the CLI against the fixed data by calling `Pick55\R\Context::at(strtotime('2026-10-02 12:00'))` (live), `'2026-09-21 23:00'` (recap), `'2026-09-23 09:00'` (pick, complete), `'2026-09-03 09:00'` (waiting) after setting `$_SESSION[SKEY]['user_id']`, then including `r/index.php`; user 3 (linked to older seasons only) gives the not-a-player state.
+- Log in from a script: `POST r/auth/login.php` with `action=login&email=…&password=…`, keep the cookie jar (`session_id`, `fingerprint`, `remember_token`), then GET pages, optionally with `-H "X-P55-Partial: 1"` to see fragments. In Windows PowerShell 5.1, `Invoke-WebRequest -WebSession $s -Headers @{...}` copies the headers into `$s.Headers` and sends them on every later call; call `$s.Headers.Clear()` before each request, and read an error reply's body from `$_.ErrorDetails.Message`.
