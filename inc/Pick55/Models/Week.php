@@ -2,6 +2,7 @@
 
 namespace Pick55\Models;
 
+use Pick55\Cache;
 use Pick55\DB;
 use Pick55\Models\Season;
 
@@ -431,5 +432,185 @@ class Week extends BaseModel
 				->update(['b.option' => '3']);
 		}
 		return true;
+	}
+
+	/**
+	 * Gives one player a side on every game of this week they have not
+	 * picked, and a point value to every pick of theirs left without one
+	 * while they still have unused values. Sides already chosen (including
+	 * guaranteed '3's) and values already placed are kept; only '0' sides are
+	 * replaced, unless $all. Game order is random, so which unvalued picks
+	 * receive the leftover values is random too. This is the admin picks
+	 * page's "Randomize" and the automatic fill at kickoff
+	 * (randomizeRemainingPicks()).
+	 *
+	 * @param int $user_id
+	 * @param bool $all  replace every side, not just the missing ones
+	 * @return bool
+	 */
+	public function randomizePicksForUser($user_id, $all = false)
+	{
+		$user_id = (int) $user_id;
+		if (!$user_id) {
+			return false;
+		}
+		$games = $this->games()
+			->inRandomOrder()
+			->get();
+		// value => true once a pick of this player holds it (0 too, so
+		// further 0s are treated as unvalued and offered the free values).
+		$held = array_fill(0, 11, false);
+		$unvalued = [];
+		foreach ($games as $game) {
+			$pick = Bet::firstOrCreate([
+				'user_id' => $user_id,
+				'football_game_id' => $game->id,
+			]);
+			if ($all || $pick->option == '0' || !$pick->option) {
+				$pick->option = (string) mt_rand(1, 2);
+				$pick->save();
+			}
+			$mult = (int) $pick->multiplier;
+			if ($mult < 0 || $mult > 10 || $held[$mult]) {
+				$unvalued[] = $pick;
+			}
+			else {
+				$held[$mult] = true;
+			}
+		}
+		foreach ($unvalued as $pick) {
+			$value = 0;
+			for ($v = 1; $v <= 10; $v++) {
+				if (!$held[$v]) {
+					$held[$v] = true;
+					$value = $v;
+					break;
+				}
+			}
+			if ((int) $pick->multiplier !== $value) {
+				$pick->multiplier = $value;
+				$pick->save();
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * The season's players who do not have a side on every game of this week
+	 * (a side is option '1', '2' or '3'; point values do not count), the
+	 * admin picks page's SOME + NONE lists. One query.
+	 *
+	 * @return array of int user ids
+	 */
+	public function getIncompletePickerIds()
+	{
+		$num_games = (int) $this->games()->count();
+		$week_id = (int) $this->id;
+		$q = DB::table('football_users_seasons AS l')
+			->leftJoin('football_bets AS b', function ($join) use ($week_id) {
+				$join->on('b.user_id', '=', 'l.er_user_id')
+					->whereIn('b.option', ['1', '2', '3'])
+					->whereIn('b.football_game_id', function ($sub) use ($week_id) {
+						$sub->select('id')
+							->from('football_games')
+							->where('football_week_id', '=', $week_id);
+					});
+			})
+			->where('l.football_season_id', '=', (int) $this->football_season_id)
+			->groupBy('l.er_user_id')
+			->havingRaw('COUNT(b.id) < ?', [$num_games])
+			->orderBy('l.er_user_id', 'ASC');
+		$ids = [];
+		foreach ($q->pluck('l.er_user_id') as $id) {
+			$ids[] = (int) $id;
+		}
+		return $ids;
+	}
+
+	/**
+	 * How long after a week's first kickoff the automatic fill may still run.
+	 * A week's games span Thursday to Monday; a first view of the results
+	 * later than this is of a week that is over or was never played.
+	 */
+	const AUTO_PICKS_WINDOW_DAYS = 7;
+
+	/**
+	 * The automatic "Randomize Remaining Picks" (docs/auto-picks.md): once
+	 * the week has kicked off, gives every season player who is missing a
+	 * side their random picks, exactly as the admin picks page does for one
+	 * player at a time. Called before every results computation
+	 * (Context::resultsBase() for the r/ pages and APIs, the classic
+	 * season/week/results.php), so the first results view after the first
+	 * kickoff already shows complete picks.
+	 *
+	 * Runs only while the week is live: first kickoff at or before now and
+	 * within AUTO_PICKS_WINDOW_DAYS, and at least one game still undecided.
+	 * A finished week is never rewritten, so a player left blank in a past
+	 * week stays blank. Cheap when nothing is missing (two queries), which is
+	 * every call but the first. A per-week file lock keeps two simultaneous
+	 * first views from filling the same player twice. Never throws: a failure
+	 * is logged and the results page renders with what there is (the admin
+	 * picks page remains as the manual fallback).
+	 *
+	 * @return array  the user ids filled by this call, in id order
+	 */
+	public function randomizeRemainingPicks()
+	{
+		try {
+			$agg = DB::table('football_games')
+				->where('football_week_id', '=', (int) $this->id)
+				->selectRaw("COUNT(*) AS n, SUM(correct_option = '0') AS undecided, MIN(CONCAT(`date`, ' ', IFNULL(`time`, '00:00:00'))) AS first_at")
+				->first();
+			if (!$agg || !(int) $agg->n || !(int) $agg->undecided || !$agg->first_at) {
+				return [];
+			}
+			$first_at = strtotime($agg->first_at);
+			$now = time();
+			if (!$first_at || $first_at > $now || $first_at < $now - self::AUTO_PICKS_WINDOW_DAYS * 86400) {
+				return [];
+			}
+			if (!sizeof($this->getIncompletePickerIds())) {
+				return [];
+			}
+			$week = $this;
+			return Cache::withLock('auto-picks-' . (int) $this->id, function () use ($week) {
+				// Another request may have filled them while this one waited.
+				$ids = $week->getIncompletePickerIds();
+				$filled = [];
+				foreach ($ids as $user_id) {
+					if ($week->randomizePicksForUser($user_id)) {
+						$filled[] = $user_id;
+					}
+				}
+				if (sizeof($filled)) {
+					$key = 'auto-picks-' . (int) $week->id;
+					$runs = Cache::get($key);
+					if (!is_array($runs)) {
+						$runs = [];
+					}
+					$runs[] = ['at' => now(), 'user_ids' => $filled];
+					Cache::set($key, $runs);
+					error_log('pick55: auto-filled the remaining picks of week #' . (int) $week->id . ' for ' . sizeof($filled) . ' player(s): ' . implode(', ', $filled));
+				}
+				return $filled;
+			});
+		}
+		catch (\Throwable $e) {
+			error_log('pick55: auto-fill of week #' . (int) $this->id . ' picks failed: ' . $e->getMessage());
+			return [];
+		}
+	}
+
+	/**
+	 * What randomizeRemainingPicks() has done for this week, for the admin
+	 * picks page: a list of runs, each ['at' => datetime, 'user_ids' => [...]].
+	 * From the file cache, so empty after a cache clear.
+	 *
+	 * @return array
+	 */
+	public function getAutoPickRuns()
+	{
+		$runs = Cache::get('auto-picks-' . (int) $this->id);
+		return is_array($runs) ? $runs : [];
 	}
 }

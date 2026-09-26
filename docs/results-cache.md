@@ -39,7 +39,9 @@ Three aggregate queries, all index-driven, run on every request. Any score updat
 
 Key format: `results-<week_id>-<fingerprint16>-<variant md5>`, where the variant is the sorted focus user ids, the what-if selection and the normalized options (pool map, pretend-undecided games). Every pool view and every what-if combination is its own entry, computed on first view. The timeline is one more entry per week, `results-<week_id>-<fingerprint16>-timeline-<md5>`, swept with the rest when the fingerprint changes. Recorded winnings are not part of the key because they are read after the cache lookup. Pool membership is in the variant, not the fingerprint, so moving a player between pools changes the key the page asks for rather than invalidating anything.
 
-A per-week file lock (`results-<week_id>-lock.lock`) makes concurrent misses wait for one computation instead of all computing at once.
+A per-week file lock (`results-<week_id>-lock.lock`, through `Cache::withLock()`) makes concurrent misses wait for one computation instead of all computing at once.
+
+Since 2026-09-26 both results pages call `Week::randomizeRemainingPicks()` before `WeekResults::get()` ([auto-picks.md](auto-picks.md)): the first request after the first kickoff fills every missing pick, and the changed bets give that same request a new fingerprint, so the first entry ever computed for a live week is already of complete picks.
 
 ## Money: payouts, expected winnings, the timeline (2026-09-25)
 

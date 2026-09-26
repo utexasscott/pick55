@@ -130,23 +130,38 @@ class Cache
 		if ($val !== null) {
 			return $val;
 		}
+		return self::withLock($lock_name, function () use ($key, $compute) {
+			// Another request may have filled it while we waited.
+			$val = self::get($key);
+			if ($val !== null) {
+				return $val;
+			}
+			$val = $compute();
+			self::set($key, $val);
+			return $val;
+		});
+	}
+
+	/**
+	 * Runs $fn while holding an exclusive file lock named $lock_name, so
+	 * concurrent requests run it one after another. Without a writable cache
+	 * directory there is no lock and $fn simply runs.
+	 *
+	 * @param string $lock_name
+	 * @param callable $fn
+	 * @return mixed  what $fn returns
+	 */
+	public static function withLock($lock_name, callable $fn)
+	{
 		$fp = null;
 		if (self::dir() !== '') {
 			$fp = @fopen(self::dir() . '/' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $lock_name) . '.lock', 'c');
 		}
 		if ($fp) {
 			flock($fp, LOCK_EX);
-			// Another request may have filled it while we waited.
-			$val = self::get($key);
-			if ($val !== null) {
-				flock($fp, LOCK_UN);
-				fclose($fp);
-				return $val;
-			}
 		}
 		try {
-			$val = $compute();
-			self::set($key, $val);
+			return $fn();
 		}
 		finally {
 			if ($fp) {
@@ -154,6 +169,5 @@ class Cache
 				fclose($fp);
 			}
 		}
-		return $val;
 	}
 }

@@ -470,6 +470,11 @@ class Context
 	 */
 	private function resultsBase(Week $week)
 	{
+		// The first results computation after the first kickoff fills every
+		// missing pick with random sides (docs/auto-picks.md); no-op otherwise.
+		// Before WeekResults::get(), whose fingerprint then sees the new bets.
+		$week->randomizeRemainingPicks();
+
 		$users = [];
 		if ($this->season && (int) $week->football_season_id === (int) $this->season->id) {
 			$users = $this->players();

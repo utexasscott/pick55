@@ -53,6 +53,10 @@ if (!$week->canUserSeeResults($me->id)) {
 }
 $app->setSeason($week->season);
 
+// The first results computation after the first kickoff fills every missing
+// pick with random sides (docs/auto-picks.md); a no-op every other time.
+$week->randomizeRemainingPicks();
+
 $page = new Page;
 $page->setTitle('Results - Week ' . $week->week_num . ' - ' . $week->season->name);
 $page->options['season_bar']['show'] = true;

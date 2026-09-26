@@ -63,6 +63,9 @@ class User extends BaseModel
 	}
 
 	/**
+	 * Random sides for this player's missing picks of a week, and their
+	 * unused point values on their unvalued picks: Week::randomizePicksForUser().
+	 *
 	 * @param int $week_id
 	 * @param bool $all
 	 * @return bool
@@ -73,45 +76,7 @@ class User extends BaseModel
 		if (!$week) {
 			return false;
 		}
-
-		$games = $week->games()
-			->inRandomOrder()
-			->get();
-		$multipliers_set = [];
-		$multipliers_unset = [];
-		foreach (range(0,10) as $i) {
-			$multipliers_set[$i] = false;
-		}
-
-		foreach ($games as $game) {
-			$pick = Bet::firstOrCreate([
-				'user_id' => $this->id,
-				'football_game_id' => $game->id,
-			]);
-			if ($all || $pick->option == '0' || !$pick->option) {
-				$pick->option = (string) round(rand(1, 2));
-			}
-			$pick->save();
-			if ($multipliers_set[$pick->multiplier]) {
-				$multipliers_unset[] = $pick;
-				$pick->multiplier = 0;
-				$pick->save();
-			}
-			else {
-				$multipliers_set[$pick->multiplier] = $pick;
-			}
-		}
-		foreach ($multipliers_unset as $pick) {
-			foreach ($multipliers_set as $mult => $set_pick) {
-				if (!$set_pick) {
-					$pick->multiplier = $mult;
-					$pick->save();
-					$multipliers_set[$mult] = $pick;
-					break;
-				}
-			}
-		}
-		return true;
+		return $week->randomizePicksForUser($this->id, $all);
 	}
 
 	/**

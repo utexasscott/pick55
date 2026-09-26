@@ -36,6 +36,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | What do the all-time stats pages (walls of fame/shame, leaderboards, best seasons) count, and how are they cached? | [docs/all-time-stats.md](docs/all-time-stats.md) |
 | How do live scores get to the results page, and how does a game's result get set automatically? | [docs/live-scores.md](docs/live-scores.md) |
 | What is the `r/` site (the redesign), how is it built, and what is its contract? | [docs/redesign.md](docs/redesign.md) |
+| How do players who missed the kickoff get their picks, and what stops that from touching a past week? | [docs/auto-picks.md](docs/auto-picks.md) |
 | How does a player stay signed in, and why does production sign them out of the server-side session so often? | [docs/login-sessions.md](docs/login-sessions.md) |
 
 ## Layout
@@ -68,7 +69,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - Flash messages via `Alert::success|error|warning|info()`; rendered by `Page::renderAlerts()`.
 - Season/week resolution: `App::get()->getSeason()` (query `?id=`, else active, else latest). `Season::weeks()` is ordered by `week_num` ascending; callers that loop it (`Week::getActive()`, `Week::getNext()`, the season page) rely on that, since weeks are inserted by hand in any id order. Week state is computed from `picks_due_date` and first game datetime (`Week::canPick()`, `canSeeResults()`).
 - Bump `Page::ASSET_VERSION` when changing `static/css/global.css` or `static/js/global.js` (cache-busting).
-- Picks: each bet has `option` ('0' none, '1'/'2' sides, '3' guaranteed-correct) and a `multiplier` (confidence 0–10; each of 1–10 may be used once per week).
+- Picks: each bet has `option` ('0' none, '1'/'2' sides, '3' guaranteed-correct) and a `multiplier` (confidence 0–10; each of 1–10 may be used once per week). A player still missing a side when the week's results are first computed after kickoff gets random picks (`Week::randomizeRemainingPicks()`, called from `Context::resultsBase()` and the classic results page, since 2026-09-26; see [docs/auto-picks.md](docs/auto-picks.md)).
 - A week's rules (name, pools, playoff flag, payouts) come from its `WeekFormat` via `Week::getName()`, `getNumPools()`, `getNumWinners($pool_num)`, `getMinScoreThreshold($pool_num)`, `isPlayoffs()`. `football_weeks` has no rule columns of its own any more (dropped 2026-09-25).
 - Times: the app runs in `America/Chicago`; `football_games.date`/`time` are Central wall-clock.
 - Winnings are never typed in: `Pick55\WeekPayouts` turns the week format's payout rows into money per player (ties split the places they span; a player keeps the single largest amount they qualify for, overall over pool) and the results page records `football_week_winners` from it once every game of a recent week is decided. Expected winnings and the Expected Winnings chart come from the same rules inside `WeekResults` (see [docs/results-cache.md](docs/results-cache.md), "Money").

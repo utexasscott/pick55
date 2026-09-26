@@ -86,6 +86,24 @@ ob_start();
 		<div class="card mb-3">
 			<h4 class="card-header">Randomize Remaining Picks</h4>
 			<div class="card-body">
+				<p class="text-muted small">
+					Since 2026-09-26 this happens by itself: the first time the week's results are computed after
+					its first kickoff, every player still missing a side gets random picks (see docs/auto-picks.md).
+					This form is the manual fallback.
+					<?php $auto_runs = $week->getAutoPickRuns(); ?>
+					<?php if (sizeof($auto_runs)): ?>
+						<br>Automatic fills this week:
+						<?php foreach ($auto_runs as $run): ?>
+							<br>&bull; <?=DateTimeDisplay::b($run['at'])?> &mdash;
+							<?=sizeof($run['user_ids'])?> player<?=sizeof($run['user_ids']) == 1 ? '' : 's'?>
+							(<?=implode(', ', array_map(function ($id) use ($players) {
+								return isset($players[$id]) ? $players[$id]->getName() : '#' . (int) $id;
+							}, $run['user_ids']))?>)
+						<?php endforeach; ?>
+					<?php elseif ($week->canSeeResults()): ?>
+						<br>No automatic fill has run for this week (or the cache was cleared since).
+					<?php endif; ?>
+				</p>
 				<div class="input-group">
 					<select class="form-select" name="user_id">
 						<option></option>
