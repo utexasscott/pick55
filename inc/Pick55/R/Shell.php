@@ -201,12 +201,14 @@ class Shell
 	}
 
 	/**
-	 * @return string  the site's base path, e.g. '/pick55/'
+	 * @return string  the site's base path, e.g. '/pick55/', or '/' when the
+	 *                 site is served from the root of its host (production's
+	 *                 base_url is '//pick55.com/')
 	 */
 	public static function basePath()
 	{
-		$path = parse_url((string) config('base_url'), PHP_URL_PATH);
-		return '/' . trim((string) $path, '/') . '/';
+		$path = trim((string) parse_url((string) config('base_url'), PHP_URL_PATH), '/');
+		return $path === '' ? '/' : '/' . $path . '/';
 	}
 
 	/**
