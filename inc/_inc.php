@@ -51,14 +51,19 @@ ini_set('session.use_only_cookies', '1');
 // Specify the hash function to generate session IDs ('0' => MD5, '1' => SHA-1)
 ini_set('session.hash_function', '1');
 
+// Session key
+define('SKEY', 'pick55');
+
+// How long a login lasts without a visit (in seconds). The session cookies below,
+// the server-side session and the remember_token cookie (Auth) all use it, and
+// every visit while logged in extends the window by this much again.
+define('LOGIN_LIFETIME', 60 * 60 * 24 * 30);
+
 // Set the lifetime for the session before it is garbage collected (in seconds)
-ini_set('session.gc_maxlifetime', 60 * 60 * 24);
+ini_set('session.gc_maxlifetime', LOGIN_LIFETIME);
 
 // Transparently compress pages
 ini_set('zlib.output_compression', true);
-
-// Session key
-define('SKEY', 'pick55');
 
 // -------
 // Session
@@ -75,6 +80,11 @@ if (
 ) {
 	session_id($_COOKIE['session_id']);
 	session_start();
+
+	// Extend the cookies so the login slides with each visit
+	$timestamp = time() + LOGIN_LIFETIME;
+	setcookie('session_id', session_id(), $timestamp, '/', '', false, true);
+	setcookie('fingerprint', $__fingerprint, $timestamp, '/', '', false, true);
 }
 else {
 	session_start();
@@ -88,7 +98,7 @@ else {
 		$_SESSION = [];
 	}
 
-	$timestamp = time() + 60 * 60 * 24 * 7;
+	$timestamp = time() + LOGIN_LIFETIME;
 	setcookie('session_id', session_id(), $timestamp, '/', '', false, true);
 	setcookie('fingerprint', $__fingerprint, $timestamp, '/', '', false, true);
 }

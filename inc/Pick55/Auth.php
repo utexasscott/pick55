@@ -213,14 +213,16 @@ class Auth
 	}
 
 	/**
-	 * When not logged in, see if we can auto login via a cookie.
+	 * When not logged in, see if we can auto login via a cookie. When logged in,
+	 * extends the cookie so the login lasts LOGIN_LIFETIME past the latest visit.
 	 */
 	public static function attemptCookieLogin()
 	{
-		if (self::authed()) {
+		if (!isset($_COOKIE['remember_token']) || !$_COOKIE['remember_token']) {
 			return;
 		}
-		if (!isset($_COOKIE['remember_token']) || !$_COOKIE['remember_token']) {
+		if (self::authed()) {
+			self::sendRememberCookie($_COOKIE['remember_token']);
 			return;
 		}
 		$user = User::where('remember_token', '=', $_COOKIE['remember_token'])
@@ -262,19 +264,30 @@ class Auth
 		$token = self::token();
 		$user->remember_token = $token;
 		$user->save();
-		setcookie('remember_token', $token, [
-			'expires' => time() + 60 * 60 * 24 * 7,
-			'path' => '/',
-		]);
+		self::sendRememberCookie($token);
 		$_SESSION[SKEY]['user_id'] = $user_id;
+	}
+
+	/**
+	 * Sends the remember_token cookie, good for LOGIN_LIFETIME from now.
+	 *
+	 * @param string $token
+	 */
+	private static function sendRememberCookie($token)
+	{
+		setcookie('remember_token', $token, [
+			'expires' => time() + LOGIN_LIFETIME,
+			'path' => '/',
+			'httponly' => true,
+		]);
 	}
 
 	/**
 	 */
 	public static function setNoAuth()
 	{
-		setcookie('remember_token', null, [
-			'expires' => time() + 60 * 60 * 24 * 7,
+		setcookie('remember_token', '', [
+			'expires' => time() - 3600,
 			'path' => '/',
 		]);
 		$_SESSION[SKEY]['user_id'] = null;

@@ -84,6 +84,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 
 - Signup requires the passcode `FOOTBALL` (hardcoded in `Auth::attemptSignup`); accounts still need admin activation per season.
 - Passwords are `sha1(md5(salt . password))` (legacy scheme); tokens are `sha1(uniqid(mt_rand(), true))`.
+- Logins last `LOGIN_LIFETIME` (30 days, defined in `inc/_inc.php`, raised from 7 days on 2026-09-26) past the latest visit: every request re-sends the `session_id`/`fingerprint` cookies and, when signed in, the `remember_token` cookie with a fresh expiry (`Auth::attemptCookieLogin()`), and `Auth::setAuthedUserId()` rotates the token stored in `er_users.remember_token`. Since the token is one per user, signing in on a second device logs the first out once its server-side session lapses.
 - Several places build SQL by string interpolation (e.g. `season/week/save-picks.php`); values there are pre-validated ints. Prefer query builder bindings for new code.
 - `Emailer` honors `dev_email_redir` in config to reroute all mail in dev.
 - The project was migrated from SVN (Beanstalk, r146) to git on 2026-09-04; the old `trunk/` prefix is gone, so local URLs are `/pick55/` not `/pick55/trunk/`.
