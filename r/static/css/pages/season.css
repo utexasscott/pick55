@@ -1,0 +1,658 @@
+/*
+ * Standings (.page-standings) and My Season (.page-season).
+ * Tokens only, so both themes come for free.
+ */
+
+/* ---------------------------------------------------------------- */
+/* Shared                                                            */
+/* ---------------------------------------------------------------- */
+
+.page-standings > * + *,
+.page-season > * + * {
+	margin-top: var(--s-5);
+}
+
+.page-standings .season-head,
+.page-season .season-head {
+	margin-bottom: 0;
+}
+
+.page-standings .season-pick,
+.page-season .season-pick {
+	display: flex;
+	gap: var(--s-2);
+	align-items: center;
+}
+
+.js .page-standings .season-go,
+.js .page-season .season-go {
+	display: none;
+}
+
+.page-standings .season-stats,
+.page-season .season-stats {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--s-3);
+}
+
+.page-standings .season-stats .stat,
+.page-season .season-stats .stat {
+	padding: var(--s-4);
+	border: 1px solid var(--line);
+	border-radius: var(--r-3);
+	background: var(--bg-elev);
+	box-shadow: var(--sh-1);
+}
+
+.page-standings .season-stats .stat-value,
+.page-season .season-stats .stat-value {
+	font-size: 1.75rem;
+}
+
+.page-season a.stat-link {
+	color: inherit;
+	transition: border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+
+.page-season a.stat-link:hover {
+	text-decoration: none;
+	border-color: var(--line-strong);
+	box-shadow: var(--sh-2);
+}
+
+@media (min-width: 720px) {
+	.page-standings .season-stats,
+	.page-season .season-stats {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: var(--s-4);
+	}
+
+	.page-standings .season-stats .stat-value,
+	.page-season .season-stats .stat-value {
+		font-size: 2.1rem;
+	}
+}
+
+.page-standings .lb-total td,
+.page-season .lb-total td {
+	background: var(--bg-sunken);
+	font-weight: 750;
+	border-top: 1px solid var(--line-strong);
+	border-bottom: 0;
+}
+
+.page-standings .panel-empty,
+.page-season .panel-empty {
+	margin: 0;
+	padding: var(--s-6) var(--s-5);
+}
+
+/* ---------------------------------------------------------------- */
+/* Standings: leaderboard                                            */
+/* ---------------------------------------------------------------- */
+
+.page-standings td.lb-player {
+	white-space: nowrap;
+}
+
+.page-standings td.lb-player > .rank {
+	margin-right: var(--s-2);
+	vertical-align: middle;
+}
+
+.page-standings td.lb-player > .player-name {
+	display: inline-block;
+	max-width: 150px;
+	vertical-align: middle;
+}
+
+@media (min-width: 720px) {
+	.page-standings td.lb-player > .player-name {
+		max-width: 240px;
+	}
+}
+
+.page-standings .lb-pts {
+	font-weight: 800;
+	font-size: 1rem;
+}
+
+.page-standings .table td.num,
+.page-season .table td.num {
+	font-variant-numeric: tabular-nums;
+}
+
+.page-standings .lb-weeks-h,
+.page-standings .lb-weeks {
+	width: 1%;
+}
+
+.page-standings .wk-strip {
+	display: inline-flex;
+	align-items: flex-end;
+	gap: 2px;
+	height: 26px;
+	padding: 0 2px;
+	vertical-align: middle;
+}
+
+.page-standings .wk-bar {
+	display: block;
+	width: 6px;
+	height: calc(var(--h) * 100%);
+	min-height: 2px;
+	border-radius: 2px 2px 0 0;
+	background: color-mix(in srgb, var(--fg-faint) 70%, transparent);
+	cursor: default;
+	position: relative;
+}
+
+/* A bigger hit target than the bar */
+.page-standings .wk-bar::before {
+	content: "";
+	position: absolute;
+	left: -1px;
+	right: -1px;
+	bottom: 0;
+	height: 26px;
+}
+
+.page-standings .wk-bar.is-partial {
+	background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg-faint) 70%, transparent) 0 2px, transparent 2px 4px);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg-faint) 70%, transparent);
+}
+
+.page-standings .row-me .wk-bar:not(.is-partial) {
+	background: var(--brand);
+}
+
+.page-standings .row-friend .wk-bar:not(.is-partial) {
+	background: var(--accent);
+}
+
+@media (min-width: 720px) {
+	.page-standings .wk-bar {
+		width: 8px;
+	}
+}
+
+.wk-tip {
+	position: fixed;
+	z-index: 90;
+	padding: 4px 8px;
+	border-radius: 6px;
+	background: var(--fg);
+	color: var(--bg-elev);
+	font-size: 0.75rem;
+	font-weight: 650;
+	white-space: nowrap;
+	pointer-events: none;
+	box-shadow: var(--sh-2);
+}
+
+.wk-tip[hidden] {
+	display: none;
+}
+
+/* ---------------------------------------------------------------- */
+/* Standings: analysis panels                                        */
+/* ---------------------------------------------------------------- */
+
+.page-standings .analysis-head {
+	justify-content: flex-start;
+}
+
+.page-standings .analysis-seg {
+	max-width: 100%;
+}
+
+@media (max-width: 559px) {
+	.page-standings .analysis-seg > button .icon {
+		display: none;
+	}
+}
+
+.page-standings .panel[hidden] {
+	display: none;
+}
+
+.page-standings .panel-note {
+	margin: 0;
+	padding: var(--s-4) var(--s-5) 0;
+}
+
+.page-standings .chart-box {
+	position: relative;
+	height: 260px;
+	margin: var(--s-3) var(--s-4) var(--s-4);
+}
+
+.page-standings .chart-box.chart-tall {
+	height: 320px;
+}
+
+@media (min-width: 900px) {
+	.page-standings .chart-box {
+		height: 300px;
+	}
+
+	.page-standings .chart-box.chart-tall {
+		height: 380px;
+	}
+}
+
+.page-standings .traj-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s-2) var(--s-4);
+	margin: 0;
+	padding: 0 var(--s-5) var(--s-5);
+	list-style: none;
+	color: var(--fg-muted);
+	font-size: 0.8rem;
+}
+
+.page-standings .traj-legend li {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.page-standings .traj-swatch {
+	width: 14px;
+	height: 3px;
+	border-radius: 2px;
+	background: var(--fg-faint);
+}
+
+.page-standings .traj-legend .is-me {
+	color: var(--fg);
+	font-weight: 800;
+}
+
+.page-standings .traj-legend .is-me .traj-swatch {
+	height: 4px;
+	background: var(--brand);
+}
+
+.page-standings .traj-legend .is-friend .traj-swatch {
+	background: var(--accent);
+}
+
+.page-standings .split-groups th {
+	padding-top: var(--s-3);
+	padding-bottom: 4px;
+	border-bottom: 0;
+	text-align: right;
+}
+
+.page-standings .split .split-ncaa,
+.page-standings .split .split-nfl,
+.page-standings .split .split-ou,
+.page-standings .split .split-spread {
+	border-left: 1px solid var(--line);
+}
+
+.page-standings .split td:nth-child(2),
+.page-standings .split td:nth-child(5) {
+	border-left: 1px solid var(--line);
+}
+
+.page-standings .panel .table-wrap {
+	margin-top: var(--s-2);
+}
+
+/* ---------------------------------------------------------------- */
+/* My Season: timeline                                               */
+/* ---------------------------------------------------------------- */
+
+.page-season .tl-key {
+	display: none;
+	align-items: center;
+	gap: 6px;
+}
+
+.page-season .tl-key .pdot {
+	width: 18px;
+	height: 18px;
+	margin-left: 6px;
+}
+
+@media (min-width: 560px) {
+	.page-season .tl-key {
+		display: inline-flex;
+	}
+}
+
+.page-season .timeline {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.page-season .tl-item + .tl-item {
+	border-top: 1px solid var(--line);
+}
+
+.page-season .tl-row {
+	display: grid;
+	grid-template-columns: 36px minmax(0, 1fr) auto;
+	grid-template-areas:
+		"num main end"
+		"dots dots dots";
+	align-items: center;
+	gap: var(--s-2) var(--s-3);
+	padding: var(--s-3) var(--s-5);
+	color: inherit;
+}
+
+.page-season a.tl-row {
+	transition: background-color var(--dur-1) var(--ease);
+}
+
+.page-season a.tl-row:hover {
+	text-decoration: none;
+	background: var(--bg-hover);
+}
+
+.page-season .tl-num {
+	grid-area: num;
+	display: grid;
+	place-items: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	background: var(--bg-sunken);
+	color: var(--fg-muted);
+	font-weight: 850;
+	font-stretch: 80%;
+	font-size: 1.05rem;
+}
+
+.page-season .is-pick .tl-num {
+	background: var(--brand);
+	color: var(--brand-ink);
+}
+
+.page-season .is-live .tl-num {
+	background: var(--live-soft);
+	color: var(--live);
+}
+
+.page-season .is-upcoming .tl-num,
+.page-season .is-tbd .tl-num {
+	background: transparent;
+	box-shadow: inset 0 0 0 1px var(--line);
+	color: var(--fg-faint);
+}
+
+.page-season .tl-main {
+	grid-area: main;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.page-season .tl-name {
+	display: flex;
+	align-items: center;
+	gap: var(--s-2);
+	min-width: 0;
+}
+
+.page-season .tl-name strong {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.page-season .tl-pill {
+	padding-top: 1px;
+	padding-bottom: 1px;
+	font-size: 0.68rem;
+}
+
+.page-season .tl-state {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.page-season .tl-end {
+	grid-area: end;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s-2);
+	justify-self: end;
+}
+
+.page-season .tl-pts {
+	min-width: 52px;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.page-season .tl-pts b {
+	font-size: 1.35rem;
+	font-weight: 850;
+	font-stretch: 80%;
+}
+
+.page-season .tl-pts small {
+	color: var(--fg-faint);
+	font-size: 0.72rem;
+}
+
+.page-season .tl-end .rank {
+	min-width: 40px;
+}
+
+.page-season .tl-dots {
+	grid-area: dots;
+	display: grid;
+	grid-template-columns: repeat(10, minmax(0, 1fr));
+	gap: 4px;
+	max-width: 420px;
+}
+
+@media (min-width: 900px) {
+	.page-season .tl-row {
+		grid-template-columns: 36px minmax(0, 1fr) auto auto;
+		grid-template-areas: "num main dots end";
+	}
+
+	.page-season .tl-dots {
+		width: 330px;
+	}
+
+	.page-season .tl-end {
+		min-width: 170px;
+		justify-content: flex-end;
+	}
+}
+
+/* A pick result: icon in a dot, its point value underneath */
+.page-season .pdot {
+	position: relative;
+	display: inline-grid;
+	place-items: center;
+	aspect-ratio: 1;
+	width: 100%;
+	max-width: 30px;
+	border-radius: 50%;
+	font-size: 0.75rem;
+	font-weight: 800;
+	justify-self: center;
+}
+
+.page-season .pdot .icon {
+	width: 58%;
+	height: 58%;
+	stroke-width: 3;
+}
+
+.page-season .pdot-val {
+	position: absolute;
+	right: -3px;
+	bottom: -3px;
+	min-width: 14px;
+	height: 14px;
+	padding: 0 2px;
+	border-radius: 7px;
+	background: var(--bg-elev);
+	color: var(--fg-muted);
+	box-shadow: 0 0 0 1px var(--line);
+	font-size: 0.58rem;
+	line-height: 14px;
+	text-align: center;
+}
+
+.page-season .tl-key .pdot-val {
+	display: none;
+}
+
+.page-season .pdot-good {
+	background: var(--good-soft);
+	color: var(--good);
+}
+
+.page-season .pdot-bad {
+	background: var(--bad-soft);
+	color: var(--bad);
+}
+
+.page-season .pdot-auto {
+	background: var(--accent-soft);
+	color: var(--accent);
+}
+
+.page-season .pdot-open {
+	background: transparent;
+	color: var(--fg-faint);
+	box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+
+/* ---------------------------------------------------------------- */
+/* My Season: doughnuts                                              */
+/* ---------------------------------------------------------------- */
+
+.page-season .donuts {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: var(--s-5);
+	margin-bottom: var(--s-4);
+}
+
+@media (min-width: 560px) {
+	.page-season .donuts {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.page-season .donut {
+	display: flex;
+	align-items: center;
+	gap: var(--s-4);
+	margin: 0;
+}
+
+.page-season .donut-chart {
+	position: relative;
+	flex: 0 0 132px;
+	width: 132px;
+	height: 132px;
+}
+
+.page-season .donut-center {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.page-season .donut-center b {
+	font-size: 1.6rem;
+	font-weight: 850;
+	font-stretch: 80%;
+	line-height: 1;
+}
+
+.page-season .donut-center small {
+	color: var(--fg-faint);
+	font-size: 0.7rem;
+}
+
+.page-season .donut figcaption {
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.page-season .donut-title {
+	display: block;
+	margin-bottom: var(--s-2);
+	color: var(--fg-faint);
+	font-size: 0.72rem;
+	font-weight: 750;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.page-season .donut-legend {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.page-season .donut-legend li {
+	display: grid;
+	grid-template-columns: 12px minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: var(--s-2);
+	padding: 4px 0;
+	font-size: 0.9rem;
+}
+
+.page-season .donut-legend .faint {
+	min-width: 38px;
+	text-align: right;
+	font-size: 0.8rem;
+}
+
+.page-season .legend-swatch {
+	width: 12px;
+	height: 12px;
+	border-radius: 3px;
+}
+
+.page-season .sw-nfl { background: var(--nfl); }
+.page-season .sw-ncaa { background: var(--ncaa); }
+.page-season .sw-ou { background: var(--ou); }
+.page-season .sw-spread { background: var(--spread); }
+
+/* ---------------------------------------------------------------- */
+/* My Season: history                                                */
+/* ---------------------------------------------------------------- */
+
+.page-season .history .rank {
+	min-width: 40px;
+}
+
+.page-season .history a:hover {
+	text-decoration: none;
+}
+
+/* ---------------------------------------------------------------- */
+/* Motion                                                            */
+/* ---------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+	.page-season a.tl-row,
+	.page-season a.stat-link {
+		transition: none;
+	}
+}
