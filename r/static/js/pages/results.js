@@ -209,6 +209,40 @@
 		});
 
 		// --------------------------------------------------------------
+		// Week menu: keep the panel on screen, show the current week
+
+		var weekMenu = $('details.week-menu');
+		if (weekMenu) {
+			on(weekMenu, 'toggle', function () {
+				var panel = weekMenu.querySelector('.week-menu-panel');
+				if (!panel || !weekMenu.open) {
+					return;
+				}
+				// Hang from the button's left edge when the default (right
+				// edge) would push the panel off the left of the screen.
+				// edge) would push the panel off the left of the screen, then
+				// slide it back if that pushes it off the right (a narrow
+				// phone; the panel is never wider than the screen).
+				panel.classList.remove('is-left');
+				panel.style.left = '';
+				var r = panel.getBoundingClientRect();
+				if (r.left < 8) {
+					panel.classList.add('is-left');
+					r = panel.getBoundingClientRect();
+					var over = r.right - (document.documentElement.clientWidth - 8);
+					if (over > 0) {
+						panel.style.left = (-over) + 'px';
+					}
+				}
+				// Scroll the list so the current week is in view.
+				var cur = panel.querySelector('.menu-item.is-current');
+				if (cur && panel.scrollHeight > panel.clientHeight) {
+					panel.scrollTop = Math.max(0, cur.offsetTop - (panel.clientHeight - cur.offsetHeight) / 2);
+				}
+			});
+		}
+
+		// --------------------------------------------------------------
 		// The "me" dock: my row, pinned when it is scrolled away
 
 		var dock = $('[data-medock]');

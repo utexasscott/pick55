@@ -12,6 +12,9 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--s-4);
+	/* Its own layer, so the open week menu paints over the cards below */
+	position: relative;
+	z-index: 5;
 }
 
 .page-results .res-top {
@@ -54,6 +57,18 @@
 	max-height: min(420px, 60vh);
 	overflow-y: auto;
 	overscroll-behavior: contain;
+}
+
+/*
+ * The panel hangs from the button's right edge (the menu default, made for
+ * the top bar's avatar). When the week nav wraps under the title on a phone
+ * that edge is near the left of the screen, so results.js flips the panel
+ * to hang from the button's left edge instead.
+ */
+.page-results .week-menu-panel.is-left {
+	right: auto;
+	left: 0;
+	transform-origin: top left;
 }
 
 .page-results .week-menu .menu-item {
