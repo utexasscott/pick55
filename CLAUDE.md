@@ -36,6 +36,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | What do the all-time stats pages (walls of fame/shame, leaderboards, best seasons) count, and how are they cached? | [docs/all-time-stats.md](docs/all-time-stats.md) |
 | How do live scores get to the results page, and how does a game's result get set automatically? | [docs/live-scores.md](docs/live-scores.md) |
 | What is the `r/` site (the redesign), how is it built, and what is its contract? | [docs/redesign.md](docs/redesign.md) |
+| How does a player stay signed in, and why does production sign them out of the server-side session so often? | [docs/login-sessions.md](docs/login-sessions.md) |
 
 ## Layout
 
@@ -50,7 +51,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `inc/_config.example.php` — copy to `inc/_config.php` (git-ignored). Keys: `base_url`, `sendgrid_api_key`, `dev_email_redir`, `db.*`
 - `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`, `Cache` (file cache), `WeekResults` (results page calculation + cache), `WeekPayouts` (a format's payout rows applied to a standing; records winners), `AllTimeStats` (stats pages calculation + cache), `SeasonHistory`, `VegasInsider` (odds scraper), `Espn` (scoreboard client and game matching for live scores)
 - `cache/` — runtime file cache, git-ignored, created on first use (see [docs/results-cache.md](docs/results-cache.md))
-- `inc/Pick55/Models/` — Eloquent models. Tables are legacy-named: `er_users`, `football_seasons`, `football_weeks`, `football_games`, `football_teams`, `football_bets`, `football_pools`, `football_pool_users`, `er_users_friends`, etc. All models set `$timestamps = false` and `$guarded = []`. `GameScore` (`football_game_scores`, live/final ESPN scores per game, `Game::score()`) and `EspnTeam` (`football_espn_teams`, learned ESPN team ids) were added 2026-09-25 for live scores
+- `inc/Pick55/Models/` — Eloquent models. Tables are legacy-named: `er_users`, `football_seasons`, `football_weeks`, `football_games`, `football_teams`, `football_bets`, `football_pools`, `football_pool_users`, `er_users_friends`, etc. All models set `$timestamps = false` and `$guarded = []`. `GameScore` (`football_game_scores`, live/final ESPN scores per game, `Game::score()`) and `EspnTeam` (`football_espn_teams`, learned ESPN team ids) were added 2026-09-25 for live scores; `RememberToken` (`er_users_remember_tokens`, one remember-me token per signed-in device) was added 2026-09-26 (see [docs/login-sessions.md](docs/login-sessions.md))
 - `inc/Pick55/Snippets/` — static `build(array $params)` HTML/email fragment renderers, each with a short `b(...)` shortcut
 - `scrape/` — VegasInsider odds scraper CLIs (`get-raw.php`, `parse-raw.php`, `run.php` for cron, `slate.php` for the `/pick-games` skill) over `inc/Pick55/VegasInsider.php`; output under git-ignored `scrape/raw/`; see [docs/odds-scraper.md](docs/odds-scraper.md). `live-scores.php` is the 10-minute live-scores cron over `inc/Pick55/Espn.php`; see [docs/live-scores.md](docs/live-scores.md)
 - `.claude/skills/` — project skills, committed; `pick-games` chooses a week's lines from the scrape
@@ -84,7 +85,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 
 - Signup requires the passcode `FOOTBALL` (hardcoded in `Auth::attemptSignup`); accounts still need admin activation per season.
 - Passwords are `sha1(md5(salt . password))` (legacy scheme); tokens are `sha1(uniqid(mt_rand(), true))`.
-- Logins last `LOGIN_LIFETIME` (30 days, defined in `inc/_inc.php`, raised from 7 days on 2026-09-26) past the latest visit: every request re-sends the `session_id`/`fingerprint` cookies and, when signed in, the `remember_token` cookie with a fresh expiry (`Auth::attemptCookieLogin()`), and `Auth::setAuthedUserId()` rotates the token stored in `er_users.remember_token`. Since the token is one per user, signing in on a second device logs the first out once its server-side session lapses.
+- Logins last `LOGIN_LIFETIME` (30 days, `inc/_inc.php`) past the latest visit, one remember-me token per device in `er_users_remember_tokens`; production purges server-side sessions after 24 minutes and the token signs the player straight back in. See [docs/login-sessions.md](docs/login-sessions.md).
 - Several places build SQL by string interpolation (e.g. `season/week/save-picks.php`); values there are pre-validated ints. Prefer query builder bindings for new code.
 - `Emailer` honors `dev_email_redir` in config to reroute all mail in dev.
 - The project was migrated from SVN (Beanstalk, r146) to git on 2026-09-04; the old `trunk/` prefix is gone, so local URLs are `/pick55/` not `/pick55/trunk/`.

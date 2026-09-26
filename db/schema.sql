@@ -29,7 +29,7 @@ CREATE TABLE `er_users` (
   UNIQUE KEY `email` (`email`),
   KEY `remember_token` (`remember_token`),
   KEY `reset_token` (`reset_token`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=2064 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `er_users_friends`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -40,7 +40,22 @@ CREATE TABLE `er_users_friends` (
   `friend_er_user_id` int(10) unsigned NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `er_user_id` (`er_user_id`,`friend_er_user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=252 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `er_users_remember_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `er_users_remember_tokens` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `er_user_id` int(10) unsigned NOT NULL,
+  `token` char(40) COLLATE utf8_unicode_ci NOT NULL,
+  `created_at` datetime NOT NULL,
+  `last_used_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token` (`token`),
+  KEY `er_user_id` (`er_user_id`),
+  KEY `last_used_at` (`last_used_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_bets`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -60,7 +75,7 @@ CREATE TABLE `football_bets` (
   KEY `football_game_id` (`football_game_id`),
   KEY `option` (`option`),
   KEY `multiplier` (`multiplier`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=70025 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_espn_teams`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -119,7 +134,7 @@ CREATE TABLE `football_games` (
   KEY `home_team_id-away_team_id` (`away_team_id`,`home_team_id`) USING BTREE,
   KEY `away_team_id` (`away_team_id`),
   KEY `home_team_id` (`home_team_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=2443 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_games_all`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -135,7 +150,7 @@ CREATE TABLE `football_games_all` (
   PRIMARY KEY (`id`),
   KEY `away_team_id` (`away_team_id`),
   KEY `home_team_id` (`home_team_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=31 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_guaranteed_points`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -148,7 +163,7 @@ CREATE TABLE `football_guaranteed_points` (
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   KEY `week_id` (`week_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=70 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_pool_users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -161,7 +176,7 @@ CREATE TABLE `football_pool_users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `user-week` (`er_user_id`,`week_id`),
   KEY `user_id` (`er_user_id`,`week_id`,`pool_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=4980 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_pools`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -176,7 +191,7 @@ CREATE TABLE `football_pools` (
   KEY `name` (`name`),
   KEY `week_id` (`week_id`),
   KEY `pool_num` (`pool_num`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=333 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_results_cache`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -193,7 +208,7 @@ CREATE TABLE `football_results_cache` (
   UNIQUE KEY `week_id_2` (`week_id`,`er_user_id`),
   KEY `user_id` (`er_user_id`),
   KEY `week_id` (`week_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=2264 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_seasons`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -207,7 +222,7 @@ CREATE TABLE `football_seasons` (
   `fee` decimal(7,2) unsigned NOT NULL DEFAULT '120.00',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=19 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_teams`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -225,7 +240,7 @@ CREATE TABLE `football_teams` (
   `css_custom_class` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `type` (`type`,`vegas_insider_url`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=184 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_users_seasons`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -241,7 +256,7 @@ CREATE TABLE `football_users_seasons` (
   UNIQUE KEY `season_id-user_id` (`football_season_id`,`er_user_id`) USING BTREE,
   KEY `football_season_id` (`football_season_id`) USING BTREE,
   KEY `er_user_id` (`er_user_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=2646 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_week_format_payouts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -258,7 +273,7 @@ CREATE TABLE `football_week_format_payouts` (
   `total_payout` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `football_week_format_id` (`football_week_format_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=660 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_week_formats`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -275,7 +290,7 @@ CREATE TABLE `football_week_formats` (
   `advance` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `num_players` (`num_players`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=99 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_week_winners`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -288,7 +303,7 @@ CREATE TABLE `football_week_winners` (
   PRIMARY KEY (`id`),
   KEY `week_id` (`week_id`),
   KEY `er_user_id` (`er_user_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=854 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `football_weeks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -304,7 +319,7 @@ CREATE TABLE `football_weeks` (
   KEY `football_season_id` (`football_season_id`),
   KEY `week_num` (`week_num`),
   KEY `football_week_format_id` (`football_week_format_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=233 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `signups`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -321,7 +336,7 @@ CREATE TABLE `signups` (
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=13533 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

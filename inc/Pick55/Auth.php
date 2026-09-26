@@ -4,6 +4,7 @@ namespace Pick55;
 
 use \Exception;
 use Pick55\Emailer;
+use Pick55\Models\RememberToken;
 use Pick55\Models\Signup;
 use Pick55\Models\User;
 use Pick55\Snippets\Emails\VerifyEmail as VerifyEmailSnippet;
@@ -215,22 +216,29 @@ class Auth
 	/**
 	 * When not logged in, see if we can auto login via a cookie. When logged in,
 	 * extends the cookie so the login lasts LOGIN_LIFETIME past the latest visit.
+	 * The token is this device's own row (RememberToken) and is never rotated,
+	 * so signing in elsewhere does not sign this device out.
 	 */
 	public static function attemptCookieLogin()
 	{
-		if (!isset($_COOKIE['remember_token']) || !$_COOKIE['remember_token']) {
+		$token = isset($_COOKIE['remember_token']) ? (string) $_COOKIE['remember_token'] : '';
+		if ($token === '') {
 			return;
 		}
 		if (self::authed()) {
-			self::sendRememberCookie($_COOKIE['remember_token']);
+			self::sendRememberCookie($token);
 			return;
 		}
-		$user = User::where('remember_token', '=', $_COOKIE['remember_token'])
-			->first();
-		if (!$user) {
+		$row = RememberToken::findValid($token);
+		if (!$row) {
+			$row = RememberToken::adoptLegacy($token);
+		}
+		if (!$row) {
 			return;
 		}
-		self::setAuthedUserId($user->id);
+		$row->markUsed();
+		self::sendRememberCookie($row->token);
+		$_SESSION[SKEY]['user_id'] = (int) $row->er_user_id;
 	}
 
 	/**
@@ -247,7 +255,8 @@ class Auth
 	}
 
 	/**
-	 * Sets the currently logged in user by ID.
+	 * Sets the currently logged in user by ID (a password login) and issues
+	 * this device its own remember-me token.
 	 *
 	 * @param int or null $user_id
 	 */
@@ -261,11 +270,9 @@ class Auth
 			return self::setNoAuth();
 		}
 
-		$token = self::token();
-		$user->remember_token = $token;
-		$user->save();
-		self::sendRememberCookie($token);
-		$_SESSION[SKEY]['user_id'] = $user_id;
+		$row = RememberToken::issue($user->id);
+		self::sendRememberCookie($row->token);
+		$_SESSION[SKEY]['user_id'] = (int) $user->id;
 	}
 
 	/**
@@ -283,9 +290,14 @@ class Auth
 	}
 
 	/**
+	 * Signs this device out: its remember-me token row is deleted and the
+	 * cookie expired. Other devices keep their own tokens.
 	 */
 	public static function setNoAuth()
 	{
+		if (!empty($_COOKIE['remember_token'])) {
+			RememberToken::where('token', '=', (string) $_COOKIE['remember_token'])->delete();
+		}
 		setcookie('remember_token', '', [
 			'expires' => time() - 3600,
 			'path' => '/',
