@@ -483,10 +483,10 @@
 	align-items: center;
 	justify-content: stretch;
 	column-gap: 7px;
-	row-gap: 1px;
+	row-gap: 2px;
 	width: 100%;
 	min-width: 0;
-	height: 2.9rem;
+	height: 3.1rem;
 	padding: 0 10px;
 	text-align: left;
 	cursor: pointer;
@@ -530,9 +530,10 @@
 
 .page-picks .pk-side-line {
 	grid-area: line;
-	font-size: 0.74rem;
-	font-weight: 650;
-	color: var(--fg-muted);
+	font-size: 0.92rem;
+	font-weight: 700;
+	color: var(--fg);
+	opacity: 0.8;
 	line-height: 1.1;
 }
 
