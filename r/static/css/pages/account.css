@@ -1,0 +1,303 @@
+/* Account (r/account/index.php). Scoped to .page-account. */
+
+.page-account [hidden] {
+	display: none !important;
+}
+
+html:not(.js) .page-account .js-only,
+.js .page-account .nojs-only {
+	display: none !important;
+}
+
+.page-account .account-head {
+	display: flex;
+	align-items: center;
+	gap: var(--s-4);
+	margin-bottom: var(--s-5);
+}
+
+.page-account .account-avatar {
+	width: 64px;
+	height: 64px;
+	font-size: 1.3rem;
+	box-shadow: 0 10px 24px -12px var(--brand);
+}
+
+.page-account .account-id .page-sub {
+	margin-top: 4px;
+}
+
+.page-account .account-grid {
+	display: grid;
+	gap: var(--s-4);
+	align-items: start;
+}
+
+@media (min-width: 900px) {
+	.page-account .account-grid {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: var(--s-5);
+	}
+}
+
+.page-account .card-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.page-account .card-title > .icon {
+	color: var(--fg-faint);
+}
+
+.page-account .card-sub {
+	margin: 2px 0 0;
+	color: var(--fg-faint);
+	font-size: 0.82rem;
+}
+
+.page-account .avatar-sm {
+	width: 28px;
+	height: 28px;
+	font-size: 0.68rem;
+}
+
+/* ---- Profile ----------------------------------------------------- */
+
+.page-account .profile-form .field:last-of-type {
+	margin-bottom: 0;
+}
+
+.page-account .form-foot {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--s-3);
+	margin-top: var(--s-5);
+}
+
+@media (max-width: 420px) {
+	.page-account .field-row {
+		grid-template-columns: 1fr;
+		gap: 0;
+	}
+
+	.page-account .form-foot .btn {
+		flex: 1 1 auto;
+	}
+}
+
+/* ---- Appearance and links ---------------------------------------- */
+
+.page-account .pref-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--s-3);
+}
+
+.page-account .pref-label {
+	font-weight: 700;
+}
+
+.page-account .account-links {
+	display: flex;
+	flex-direction: column;
+}
+
+.page-account .link-row {
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+	min-height: 52px;
+	padding: 0 var(--s-5);
+	border-bottom: 1px solid var(--line);
+	color: var(--fg);
+	font-weight: 600;
+}
+
+.page-account .link-row:last-child {
+	border-bottom: 0;
+}
+
+.page-account .link-row:hover {
+	background: var(--bg-hover);
+	text-decoration: none;
+}
+
+.page-account .link-row > .icon:first-child {
+	color: var(--fg-faint);
+}
+
+.page-account .link-row > span {
+	flex: 1 1 auto;
+}
+
+.page-account .link-chev {
+	width: 16px;
+	height: 16px;
+	color: var(--fg-faint);
+}
+
+.page-account .link-row-danger,
+.page-account .link-row-danger > .icon:first-child {
+	color: var(--bad);
+}
+
+/* ---- Friends ----------------------------------------------------- */
+
+.page-account .friend-count {
+	height: 22px;
+	padding: 0 8px;
+	font-variant-numeric: tabular-nums;
+}
+
+.page-account .friend-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s-2);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.page-account .friend-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 40px;
+	padding: 5px 4px 5px 6px;
+	border-radius: 999px;
+	background: var(--row-friend);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+	max-width: 100%;
+}
+
+.page-account .friend-chip.is-new {
+	animation: friend-in 420ms var(--ease);
+}
+
+.page-account .friend-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.9rem;
+	font-weight: 650;
+}
+
+.page-account .chip-form {
+	display: contents;
+}
+
+.page-account .chip-x {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--fg-muted);
+	cursor: pointer;
+	transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.page-account .chip-x .icon {
+	width: 16px;
+	height: 16px;
+}
+
+.page-account .chip-x:hover,
+.page-account .chip-x:focus-visible {
+	background: var(--bad-soft);
+	color: var(--bad);
+}
+
+.page-account .friends-empty {
+	margin: 0;
+	font-size: 0.9rem;
+}
+
+.page-account .friend-add {
+	margin-top: var(--s-5);
+	padding-top: var(--s-4);
+	border-top: 1px solid var(--line);
+}
+
+.page-account .friend-add .field-label {
+	margin-bottom: 6px;
+}
+
+.page-account .search {
+	position: relative;
+}
+
+.page-account .search-icon {
+	position: absolute;
+	left: 14px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--fg-faint);
+	pointer-events: none;
+}
+
+.page-account .search-input {
+	padding-left: 42px;
+}
+
+.page-account .search-input::-webkit-search-cancel-button {
+	cursor: pointer;
+}
+
+.page-account .search-status {
+	margin: 6px 0 0;
+}
+
+.page-account .search-status:empty {
+	display: none;
+}
+
+.page-account .people > li {
+	gap: var(--s-3);
+	min-height: 52px;
+}
+
+.page-account .person-name {
+	flex: 1 1 auto;
+	font-weight: 600;
+}
+
+.page-account .search-results:not(:empty) {
+	margin-top: var(--s-2);
+}
+
+.page-account .nojs-add {
+	display: flex;
+	gap: var(--s-2);
+}
+
+.page-account .suggested {
+	margin-top: var(--s-5);
+	padding-top: var(--s-4);
+	border-top: 1px solid var(--line);
+}
+
+.page-account .suggested-title {
+	margin: 0;
+	font-size: 0.95rem;
+	font-weight: 750;
+}
+
+.page-account .suggested > p {
+	margin: 2px 0 var(--s-2);
+}
+
+@keyframes friend-in {
+	from {
+		opacity: 0;
+		transform: scale(0.85);
+	}
+}

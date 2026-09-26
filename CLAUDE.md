@@ -35,6 +35,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | Where do a week's rules and payouts live, and how are formats created? | [docs/week-formats.md](docs/week-formats.md) |
 | What do the all-time stats pages (walls of fame/shame, leaderboards, best seasons) count, and how are they cached? | [docs/all-time-stats.md](docs/all-time-stats.md) |
 | How do live scores get to the results page, and how does a game's result get set automatically? | [docs/live-scores.md](docs/live-scores.md) |
+| What is the `r/` site (the redesign), how is it built, and what is its contract? | [docs/redesign.md](docs/redesign.md) |
 
 ## Layout
 
@@ -43,6 +44,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `account/` — user profile
 - `season/` — player views: my season (`index.php`: week grid, points charts, and a Seasons table over every season the player is in, computed by `inc/Pick55/SeasonHistory.php` in four queries), standings, `week/pick.php` (make picks), `week/results.php`, `week/save-picks.php` (AJAX JSON endpoint), `week/raw.php` (JSON dump of the pick week's games, added in SVN r147–149), `week/live.php` (JSON of a week's live scores for the results page's refresh, see [docs/live-scores.md](docs/live-scores.md))
 - `stats/` — all-time stats for every logged-in player: `index.php` (record book), `fame.php`, `shame.php`, `leaderboard.php`, `seasons.php`, over `inc/Pick55/AllTimeStats.php` (cached like the results page); `_shared.php` is their common setup (see [docs/all-time-stats.md](docs/all-time-stats.md))
+- `r/` — the redesigned player site (2026-09-25), running beside the classic pages on the same session and domain classes: `index.php` (landing / "Today"), `auth/`, `account/`, `season/` (my season, standings, `week/pick.php`, `week/results.php`), `stats/`, `rules.php`, `api/` (JSON: `save-picks.php`, `week.php`, `today.php`, `friends.php`), `static/` (its own CSS/JS; no Bootstrap, jQuery or Font Awesome). Its PHP layer is `inc/Pick55/R/` (`Shell`, `Context`, `Fmt`, `Icons`, `Api`, `Today`, `SeasonStandings`). Contract and as-built notes: [docs/redesign.md](docs/redesign.md). Admin pages are not part of it.
 - `admin/` — admin-only CRUD for seasons, weeks, games, teams, pools, week formats (guarded by `Auth::guardAdmin()`). `admin/weeks/week/bulk-games.php` creates games from scraper output; `admin/formats/` creates and edits week formats (see [docs/week-formats.md](docs/week-formats.md)).
 - `inc/_inc.php` — bootstrap: loads `inc/_config.php`, session/cookies, mysqli + Eloquent connection, PSR-ish autoloader for `inc/Pick55/`, `funcs.php`, then `global_post_handler.php`
 - `inc/_config.example.php` — copy to `inc/_config.php` (git-ignored). Keys: `base_url`, `sendgrid_api_key`, `dev_email_redir`, `db.*`
