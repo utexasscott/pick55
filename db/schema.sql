@@ -244,6 +244,10 @@ CREATE TABLE `football_seasons` (
   `num_weeks` int(10) unsigned NOT NULL DEFAULT '10',
   `playoff_weeks` int(10) unsigned NOT NULL DEFAULT '2',
   `fee` decimal(7,2) unsigned NOT NULL DEFAULT '120.00',
+  `weekly_pot` decimal(7,2) unsigned NOT NULL DEFAULT '10.00',
+  `is_cfp` tinyint(1) NOT NULL DEFAULT '0',
+  `pay_to_name` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `pay_to_venmo` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
 ) ENGINE=MyISAM AUTO_INCREMENT=19 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;

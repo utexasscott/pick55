@@ -33,6 +33,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | How does Claude pick a week's 14 games from the scrape? | `/pick-games` skill: [.claude/skills/pick-games/SKILL.md](.claude/skills/pick-games/SKILL.md) |
 | Why is the week results page fast now, and how is its cache invalidated? | [docs/results-cache.md](docs/results-cache.md) |
 | Where do a week's rules and payouts live, and how are formats created? | [docs/week-formats.md](docs/week-formats.md) |
+| Where does the rules page get a season's fee, pots, start, players advancing and guaranteed-games grid? | [docs/season-rules.md](docs/season-rules.md) |
 | What do the all-time stats pages (walls of fame/shame, leaderboards, best seasons) count, and how are they cached? | [docs/all-time-stats.md](docs/all-time-stats.md) |
 | How do live scores get to the results page, and how does a game's result get set automatically? | [docs/live-scores.md](docs/live-scores.md) |
 | What is the `r/` site (the redesign), how is it built, and what is its contract? | [docs/redesign.md](docs/redesign.md) |
@@ -43,7 +44,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 
 ## Layout
 
-- `index.php`, `rules.php` — public pages
+- `index.php`, `rules.php` — public pages; `rules.php?id=N` shows any season's rules (see [docs/season-rules.md](docs/season-rules.md))
 - `auth/` — login, signup (email verify), forgot/reset password, logout
 - `account/` — user profile
 - `season/` — player views: my season (`index.php`: week grid, points charts, and a Seasons table over every season the player is in, computed by `inc/Pick55/SeasonHistory.php` in four queries), standings, `week/pick.php` (make picks), `week/results.php`, `week/save-picks.php` (AJAX JSON endpoint), `week/raw.php` (JSON dump of the pick week's games, added in SVN r147–149), `week/live.php` (JSON of a week's live scores for the results page's refresh, see [docs/live-scores.md](docs/live-scores.md))
@@ -52,7 +53,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `admin/` — admin-only CRUD for seasons, weeks, games, teams, pools, week formats (guarded by `Auth::guardAdmin()`). `admin/weeks/week/bulk-games.php` creates games from scraper output; `admin/formats/` creates and edits week formats (see [docs/week-formats.md](docs/week-formats.md)); `admin/traffic/` shows site traffic (see [docs/site-traffic.md](docs/site-traffic.md)).
 - `inc/_inc.php` — bootstrap: loads `inc/_config.php`, session/cookies, mysqli + Eloquent connection, PSR-ish autoloader for `inc/Pick55/`, `funcs.php`, the `App` (cookie login), `Traffic::start()` and `SiteVersion::handle()` (which may redirect), then `global_post_handler.php`
 - `inc/_config.example.php` — copy to `inc/_config.php` (git-ignored). Keys: `base_url`, `sendgrid_api_key`, `dev_email_redir`, `db.*`
-- `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`, `Cache` (file cache), `WeekResults` (results page calculation + cache), `WeekPayouts` (a format's payout rows applied to a standing; records winners), `AllTimeStats` (stats pages calculation + cache), `SeasonHistory`, `VegasInsider` (odds scraper), `Espn` (scoreboard client and game matching for live scores), `SiteVersion` (the classic / Version 2.0 choice cookie and its redirects), `Traffic` (one `er_site_hits` row per page request)
+- `inc/Pick55/` — app classes: `App` (singleton, season/week resolution), `Auth`, `Page` (HTML layout/nav bars), `Alert` (session flash messages), `Emailer`, `Paging`, `XHelper`, `ColorFormatter`, `Cache` (file cache), `WeekResults` (results page calculation + cache), `WeekPayouts` (a format's payout rows applied to a standing; records winners), `AllTimeStats` (stats pages calculation + cache), `SeasonHistory`, `SeasonRules` (the facts both rules pages print), `VegasInsider` (odds scraper), `Espn` (scoreboard client and game matching for live scores), `SiteVersion` (the classic / Version 2.0 choice cookie and its redirects), `Traffic` (one `er_site_hits` row per page request)
 - `cache/` — runtime file cache, git-ignored, created on first use (see [docs/results-cache.md](docs/results-cache.md))
 - `inc/Pick55/Models/` — Eloquent models. Tables are legacy-named: `er_users`, `football_seasons`, `football_weeks`, `football_games`, `football_teams`, `football_bets`, `football_pools`, `football_pool_users`, `er_users_friends`, etc. All models set `$timestamps = false` and `$guarded = []`. `GameScore` (`football_game_scores`, live/final ESPN scores per game, `Game::score()`) and `EspnTeam` (`football_espn_teams`, learned ESPN team ids) were added 2026-09-25 for live scores; `RememberToken` (`er_users_remember_tokens`, one remember-me token per signed-in device) was added 2026-09-26 (see [docs/login-sessions.md](docs/login-sessions.md)); `SiteHit` (`er_site_hits`, one row per page request) was added 2026-09-28
 - `inc/Pick55/Snippets/` — static `build(array $params)` HTML/email fragment renderers, each with a short `b(...)` shortcut

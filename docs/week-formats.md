@@ -15,7 +15,7 @@ A week's rules live on its format: `football_weeks.football_week_format_id` → 
 | `num_pools` | NULL/0 = everyone in one group; ≥ 2 = players split into that many pools (`getPlayersPerPool()` = ceil(num_players / num_pools)) |
 | `is_teams` | the pools are teams: team rows pay every member (used once, 2017 week 5) |
 | `is_playoffs` | playoff week: excluded from the season standings |
-| `advance` | knock-out round only: how many players advance to the next round |
+| `advance` | knock-out round only: how many players advance to the next round. The only home of that number; the season and the rules page read it through `Season::getNumAdvancing()` (see [season-rules.md](season-rules.md)) |
 | `total_payout` | the money the format pays out; computed by `WeekFormat::computeTotalPayout()` unless the admin overrides it |
 
 `football_week_format_payouts` (model `Pick55\Models\WeekFormatPayout`), one row per paying place range:

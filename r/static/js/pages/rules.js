@@ -2,13 +2,25 @@
  * Rules (r/rules.php): the section index highlights the section being
  * read (IntersectionObserver), scrolls to a section on click (smoothly
  * unless reduced motion), and on phones keeps the active chip in view.
+ * The season select navigates on change (the form is the no-JS path).
  */
 P55.page('rules', function (root) {
 	'use strict';
 
+	function onSeasonChange(e) {
+		var sel = e.target;
+		var form = sel && sel.closest ? sel.closest('form[data-season-pick]') : null;
+		if (form) {
+			P55.navigate(form.getAttribute('action') + '?id=' + encodeURIComponent(sel.value));
+		}
+	}
+	root.addEventListener('change', onSeasonChange);
+
 	var toc = root.querySelector('[data-toc]');
 	if (!toc) {
-		return null;
+		return function () {
+			root.removeEventListener('change', onSeasonChange);
+		};
 	}
 	var links = Array.prototype.slice.call(toc.querySelectorAll('[data-toc-link]'));
 	var sections = links.map(function (a) {
@@ -119,5 +131,6 @@ P55.page('rules', function (root) {
 		}
 		window.removeEventListener('scroll', onScroll);
 		toc.removeEventListener('click', onClick);
+		root.removeEventListener('change', onSeasonChange);
 	};
 });

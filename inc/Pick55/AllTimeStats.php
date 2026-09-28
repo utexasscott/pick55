@@ -19,9 +19,10 @@ use Pick55\Models\Season;
  *     week in which a player held any guaranteed pick is excluded from the
  *     walls, which are about real picks only;
  *   - the entry fee of a finished season is football_seasons.fee; the
- *     active season charges (fee - FINALS_ALLOCATION) / num_weeks per
- *     completed regular week plus FINALS_ALLOCATION once its last week is
- *     complete (owner, 2026-09-25: "$10 per week and $20 to the finals");
+ *     active season charges its weekly_pot per completed regular week plus
+ *     the rest of the fee (Season::getFinalsPot()) once its last week is
+ *     complete (owner, 2026-09-25: "$10 per week and $20 to the finals";
+ *     from the season row since 2026-09-28, see docs/season-rules.md);
  *   - a "full" season is one with num_weeks = 10 whose weeks are worth 55
  *     points; only full seasons whose regular season is over appear on the
  *     best-seasons page (2010 scored 13 a week; the 2024 CFP had 4 weeks).
@@ -35,7 +36,6 @@ class AllTimeStats
 	const PERFECT = 55;
 	const HONOR_MIN = 50;
 	const DISHONOR_MAX = 9;
-	const FINALS_ALLOCATION = 20;
 
 	/**
 	 * @return array see compute()
@@ -67,7 +67,7 @@ class AllTimeStats
 			'football_games' => "CONCAT_WS('|', id, football_week_id, IFNULL(type, ''), IFNULL(bet_type, ''), correct_option)",
 			'football_weeks' => "CONCAT_WS('|', id, football_season_id, week_num, IFNULL(football_week_format_id, ''))",
 			'football_week_formats' => "CONCAT_WS('|', id, name, is_playoffs, IFNULL(advance, ''))",
-			'football_seasons' => "CONCAT_WS('|', id, name, is_active, num_weeks, playoff_weeks, fee)",
+			'football_seasons' => "CONCAT_WS('|', id, name, is_active, num_weeks, playoff_weeks, fee, weekly_pot)",
 			'football_week_winners' => "CONCAT_WS('|', id, week_id, er_user_id, amount)",
 			'football_users_seasons' => "CONCAT_WS('|', id, football_season_id, er_user_id, IFNULL(paid_at, ''))",
 		];
@@ -110,6 +110,8 @@ class AllTimeStats
 				'num_weeks' => (int) $s->num_weeks,
 				'playoff_weeks' => (int) $s->playoff_weeks,
 				'fee' => (float) $s->fee,
+				'weekly_pot' => $s->getWeeklyPot(),
+				'finals_pot' => $s->getFinalsPot(),
 				'full' => false,
 				'regular_total' => 0,
 				'regular_complete' => 0,
@@ -331,10 +333,8 @@ class AllTimeStats
 
 			// Entry fee to date for the season in progress
 			if ($season['is_active']) {
-				$alloc = $season['playoff_weeks'] > 0 ? self::FINALS_ALLOCATION : 0;
-				$weekly = $season['num_weeks'] > 0 ? ($season['fee'] - $alloc) / $season['num_weeks'] : 0;
-				$season['fee_to_date'] = round(min($season['regular_complete'], $season['num_weeks']) * $weekly
-					+ ($season['last_week_complete'] ? $alloc : 0), 2);
+				$season['fee_to_date'] = round(min($season['regular_complete'], $season['num_weeks']) * $season['weekly_pot']
+					+ ($season['last_week_complete'] ? $season['finals_pot'] : 0), 2);
 			}
 			else {
 				$season['fee_to_date'] = $season['fee'];

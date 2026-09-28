@@ -134,7 +134,7 @@ ob_start();
 		<p class="filter-empty" data-filter-empty hidden>No one has played that many weeks.</p>
 		<div class="card-foot">
 			Paid in is the entry fee of every season the player joined; the season in progress counts
-			$<?=h(number_format((120 - AllTimeStats::FINALS_ALLOCATION) / 10))?> per completed regular week and $<?=AllTimeStats::FINALS_ALLOCATION?> once the Finals are done.
+			its weekly pot per completed regular week and the rest of the fee once the Finals are done (see the <a href="<?=h($shell->link('rules.php'))?>">rules</a>).
 			Pts % is points won of points risked. Guaranteed Semifinals picks are not counted as picks.
 		</div>
 	</section>

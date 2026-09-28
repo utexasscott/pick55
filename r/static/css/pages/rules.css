@@ -15,6 +15,22 @@
 	max-width: 56ch;
 }
 
+/* Any season's rules: the select navigates on change (rules.js); Go is the no-JS path. */
+.page-rules .season-pick {
+	display: flex;
+	gap: var(--s-2);
+	align-items: center;
+	margin-top: var(--s-3);
+}
+
+.js .page-rules .season-go {
+	display: none;
+}
+
+.page-rules .rules-past {
+	margin: var(--s-2) 0 0;
+}
+
 .page-rules .rules-facts {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
