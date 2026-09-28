@@ -140,8 +140,19 @@ $shell->setModule('today', [
 	'mode' => $mode,
 	'live_week_id' => $ctx->live_week ? (int) $ctx->live_week->id : null,
 	'pick_week_id' => $ctx->pick_week ? (int) $ctx->pick_week->id : null,
-	'poll' => $ctx->live_week && $ctx->is_player ? 60000 : 0,
+	'in_play' => (int) $ctx->in_play,
+	// The cron scrapes every 10 minutes; nothing moves faster than that.
+	'poll' => $ctx->live_week && $ctx->is_player ? ($ctx->in_play > 0 ? 60000 : 300000) : 0,
 ]);
+
+// The live week's next game still to kick off, for the hero's foot.
+$next_kickoff = '';
+foreach ($strip as $g) {
+	if ($g['state'] === 'pre' && strtotime($g['kickoff_at']) > $ctx->now) {
+		$next_kickoff = $g['kickoff'];
+		break;
+	}
+}
 
 $hour = (int) date('G', $ctx->now);
 $greeting = $hour < 5 ? 'Up late' : ($hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening'));
@@ -269,7 +280,7 @@ ob_start();
 		<?php if ($ctx->live_week && $ctx->my_live): ?>
 			<?php $l = $ctx->my_live; ?>
 			<a class="card also also-live enter" style="--i: 2" href="<?=h($shell->link('season/week/results.php?id=' . (int) $ctx->live_week->id))?>">
-				<span class="badge-live">LIVE</span>
+				<?php if ($ctx->in_play > 0): ?><span class="badge-live">LIVE</span><?php endif; ?>
 				<span class="also-text"><strong><?=h($week_label($ctx->live_week))?></strong> <span class="muted">&middot; rank <span data-live="rank"><?=h($l['rank_label'])?></span> &middot; <span data-live="points"><?=(int) $l['points']?></span> pts</span></span>
 				<?=Icons::svg('chevron-right', 'also-chev')?>
 			</a>
@@ -283,7 +294,7 @@ ob_start();
 		<section class="card hero hero-live enter" data-hero="live" style="--i: 1">
 			<div class="hero-top">
 				<div class="cluster">
-					<span class="badge-live">LIVE</span>
+					<?php if ($ctx->in_play > 0): ?><span class="badge-live">LIVE</span><?php endif; ?>
 					<span class="eyebrow mb-0"><?=h($week_label($lw))?></span>
 				</div>
 				<a class="card-link" href="<?=h($shell->link('season/week/results.php?id=' . (int) $lw->id))?>">Full results<?=Icons::svg('chevron-right')?></a>
@@ -321,7 +332,18 @@ ob_start();
 					<?php endforeach; ?>
 				</div>
 			<?php endif; ?>
-			<div class="hero-foot faint small">Updates every minute while games are on &middot; <span data-live="fetched" data-reltime="<?=h(Fmt::iso(time()))?>">just now</span></div>
+			<div class="hero-foot faint small">
+				<?php if ($ctx->in_play > 0): ?>
+					Scores update every 10 minutes while games are on
+				<?php elseif ($next_kickoff !== ''): ?>
+					No games in progress &middot; next kickoff <?=h($next_kickoff)?>
+				<?php else: ?>
+					No games in progress
+				<?php endif; ?>
+				<?php if ($ctx->scores_at): ?>
+					&middot; <?=$ctx->in_play > 0 ? 'last' : 'scores last'?> checked <span data-live="fetched" data-reltime="<?=h(Fmt::iso($ctx->scores_at))?>"><?=h(Fmt::ago($ctx->scores_at, $ctx->now))?></span>
+				<?php endif; ?>
+			</div>
 		</section>
 
 		<?php if ($ctx->pick_week && $ctx->my_picks_progress): ?>

@@ -41,7 +41,10 @@ $shell->setTitle('My season ' . "\u{00B7} " . $season->name);
 $shell->addScript('js/pages/season.js');
 
 $now = time();
-$standings = SeasonStandings::get($season);
+$ctx = $shell->ctx;
+// LIVE only on the week that has a game in progress right now.
+$in_play_week_id = $ctx->live_week && $ctx->in_play > 0 ? (int) $ctx->live_week->id : 0;
+$standings =SeasonStandings::get($season);
 $mine = isset($standings['players'][$me_id]) ? $standings['players'][$me_id] : null;
 $timeline = SeasonStandings::timeline($season, $me_id, $now);
 $breakdown = SeasonStandings::breakdown($season, $me_id);
@@ -146,7 +149,7 @@ ob_start();
 								<?php if ($w['state'] === 'pick'): ?>
 									<span class="text-warn">Picks due <?=h(Fmt::kickoff($w['first_game_at'], null, $now))?></span>
 								<?php elseif ($w['state'] === 'live'): ?>
-									<span class="badge-live">LIVE</span> <span class="muted"><?=(int) ($w['games'] - $w['undecided'])?> of <?=(int) $w['games']?> games decided</span>
+									<?php if ($in_play_week_id === (int) $w['id']): ?><span class="badge-live">LIVE</span> <?php endif; ?><span class="muted"><?=(int) ($w['games'] - $w['undecided'])?> of <?=(int) $w['games']?> games decided</span>
 								<?php elseif ($w['state'] === 'complete'): ?>
 									<span class="muted">Final &middot; <?=h(Fmt::record($w['right'], $w['wrong']))?></span>
 								<?php elseif ($w['state'] === 'upcoming'): ?>

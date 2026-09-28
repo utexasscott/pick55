@@ -8,12 +8,12 @@ use Pick55\R\Fmt;
 use Pick55\R\Today;
 
 // The Today hero's live refresh (docs/redesign.md section 6): the moment
-// (Context::toArray()) plus the live week's games with the viewer's picks.
+// (Context::toArray(), whose scores_at is when the live-scores cron last
+// looked) plus the live week's games with the viewer's picks.
 Api::guard('GET');
 
 $ctx = Context::get();
 $data = $ctx->toArray();
-$data['fetched_at'] = Fmt::iso(time());
 $data['games'] = [];
 if ($ctx->live_week && $ctx->is_player) {
 	$data['games'] = Today::strip($ctx, $ctx->live_week);

@@ -50,10 +50,10 @@ $shell->addStyle('css/pages/results.css');
 
 /**
  * A season's weeks in week_num order with whether their results are
- * visible (Week::canSeeResults' rule) and whether any game is undecided:
+ * visible (Week::canSeeResults' rule) and whether a game is in progress:
  * one query over the games.
  */
-$weeks_of = function ($season) {
+$weeks_of = function ($season) use ($ctx) {
 	$rows = $season->weeks()->with('format')->get();
 	$ids = [];
 	foreach ($rows as $w) {
@@ -79,7 +79,8 @@ $weeks_of = function ($season) {
 			'num' => (int) $w->week_num,
 			'name' => $w->getName(),
 			'visible' => $row && (int) $row->n > 0 && $row->first_at && strtotime($row->first_at) <= $now,
-			'live' => $row && (int) $row->undecided > 0,
+			// A game in progress right now, not merely one still to decide.
+			'live' => $ctx->in_play > 0 && $ctx->live_week && (int) $ctx->live_week->id === (int) $w->id,
 		];
 	}
 	return $out;
@@ -708,7 +709,7 @@ ob_start();
 								<a class="menu-item<?=$w['id'] === (int) $week->id ? ' is-current' : ''?>" href="<?=h($week_link($w['id']))?>"<?=$w['id'] === (int) $week->id ? ' aria-current="page"' : ''?>>
 									<span class="wm-num num"><?=(int) $w['num']?></span>
 									<span class="truncate"><?=h($w['name'])?></span>
-									<?php if ($w['live']): ?><span class="live-dot" title="Games still to decide"></span><?php endif; ?>
+									<?php if ($w['live']): ?><span class="live-dot" title="Games in progress"></span><?php endif; ?>
 								</a>
 							<?php else: ?>
 								<span class="menu-item is-disabled" aria-disabled="true">

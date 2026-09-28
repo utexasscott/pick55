@@ -342,13 +342,7 @@ class Today
 				$teams[(int) $team->id] = $team;
 			}
 		}
-		$scores = [];
-		try {
-			$scores = GameScore::forWeek($week->id);
-		}
-		catch (\Throwable $e) {
-			$scores = [];
-		}
+		$scores = $ctx->scores($week);
 		$me_id = $ctx->user ? (int) $ctx->user->id : 0;
 
 		$rows = [];

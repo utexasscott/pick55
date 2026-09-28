@@ -37,6 +37,8 @@ use Pick55\Models\Week;
  *   next_opens_at      'Y-m-d H:i:s'|null  when next_week's picks open
  *   my_picks_progress  array|null  see progress()
  *   my_live            array|null  see live()
+ *   in_play            int  games of live_week in progress right now (ESPN state "in"); LIVE marks show only while > 0
+ *   scores_at          'Y-m-d H:i:s'|null  when the live-scores cron last looked at a game of live_week
  */
 class Context
 {
@@ -57,9 +59,13 @@ class Context
 	public $next_opens_at = null;
 	public $my_picks_progress = null;
 	public $my_live = null;
+	public $in_play = 0;
+	public $scores_at = null;
 
 	/** @var array week_id => info, see info() */
 	private $weeks = [];
+	/** @var array week_id => (football_game_id => GameScore), see scores() */
+	private $scores = [];
 	/** @var array|null user_id => User, every player linked to the active season */
 	private $players = null;
 	/** @var array|null */
@@ -138,6 +144,17 @@ class Context
 			if ($this->next_week === null && $info['opens_at'] && strtotime($info['opens_at']) > $this->now) {
 				$this->next_week = $week;
 				$this->next_opens_at = $info['opens_at'];
+			}
+		}
+
+		if ($this->live_week) {
+			foreach ($this->scores($this->live_week) as $score) {
+				if ($score->isLive()) {
+					$this->in_play++;
+				}
+				if ($score->fetched_at && ($this->scores_at === null || $score->fetched_at > $this->scores_at)) {
+					$this->scores_at = (string) $score->fetched_at;
+				}
 			}
 		}
 
@@ -355,15 +372,10 @@ class Context
 		$me = $results['stats_by_user_id'][$key];
 		$leader = reset($results['stats_by_user_id']);
 		$in_play = 0;
-		try {
-			foreach (GameScore::forWeek($week->id) as $score) {
-				if ($score->isLive()) {
-					$in_play++;
-				}
+		foreach ($this->scores($week) as $score) {
+			if ($score->isLive()) {
+				$in_play++;
 			}
-		}
-		catch (\Throwable $e) {
-			// football_game_scores missing: no live counts.
 		}
 		$decided = sizeof($results['games']) - (int) $results['num_unknowns'];
 		$behind = $leader ? max(0, (int) $leader['points'] - (int) $me['points']) : 0;
@@ -389,6 +401,27 @@ class Context
 			'behind' => $leader ? max(0, (int) $leader['points'] - (int) $me['points']) : 0,
 			'win_pct' => isset($me['prediction_ranks_pct']['r1']) ? (float) $me['prediction_ranks_pct']['r1'] : 0.0,
 		];
+	}
+
+	/**
+	 * A week's live score rows (GameScore::forWeek), memoized per request.
+	 *
+	 * @param Week $week
+	 * @return array football_game_id => GameScore
+	 */
+	public function scores(Week $week)
+	{
+		$id = (int) $week->id;
+		if (!isset($this->scores[$id])) {
+			try {
+				$this->scores[$id] = GameScore::forWeek($id);
+			}
+			catch (\Throwable $e) {
+				// football_game_scores missing: no live scores.
+				$this->scores[$id] = [];
+			}
+		}
+		return $this->scores[$id];
 	}
 
 	/**
@@ -566,7 +599,8 @@ class Context
 	}
 
 	/**
-	 * Nav badges: 'picks' => "2d" | "4h 12m" (time left) | "done"; 'results' => "LIVE".
+	 * Nav badges: 'picks' => "2d" | "4h 12m" (time left) | "done"; 'results' => "LIVE"
+	 * while a game of the live week is in progress.
 	 *
 	 * @return array
 	 */
@@ -592,7 +626,7 @@ class Context
 				}
 			}
 		}
-		if ($this->live_week && $this->is_player) {
+		if ($this->live_week && $this->is_player && $this->in_play > 0) {
 			$badges['results'] = 'LIVE';
 		}
 		return $badges;
@@ -644,6 +678,8 @@ class Context
 			'next_opens_at' => Fmt::iso($this->next_opens_at),
 			'my_picks_progress' => $progress,
 			'my_live' => $this->my_live,
+			'in_play' => $this->in_play,
+			'scores_at' => Fmt::iso($this->scores_at),
 			'badges' => (object) $this->badges(),
 		];
 	}

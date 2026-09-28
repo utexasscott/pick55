@@ -104,6 +104,36 @@ class Fmt
 	}
 
 	/**
+	 * How long ago, as app.js's P55.relTime() writes it for data-reltime:
+	 * "just now", "12m ago", "3h ago", "2d ago", else "Oct 4".
+	 *
+	 * @param mixed $datetime
+	 * @param int|null $now
+	 * @return string '' when unknown
+	 */
+	public static function ago($datetime, $now = null)
+	{
+		$ts = self::ts($datetime);
+		if ($ts === null) {
+			return '';
+		}
+		$abs = abs(($now === null ? time() : (int) $now) - $ts);
+		if ($abs < 45) {
+			return 'just now';
+		}
+		if ($abs < 3600) {
+			return max(1, (int) round($abs / 60)) . 'm ago';
+		}
+		if ($abs < 86400) {
+			return (int) round($abs / 3600) . 'h ago';
+		}
+		if ($abs < 7 * 86400) {
+			return (int) round($abs / 86400) . 'd ago';
+		}
+		return date('M j', $ts);
+	}
+
+	/**
 	 * A kickoff or deadline, relative to today: "Today 7:15 PM",
 	 * "Tomorrow 3:25 PM", "Yesterday 11:00 AM", "Sat 11:00 AM" within six
 	 * days either way, otherwise "Sat, Oct 4 · 11:00 AM".

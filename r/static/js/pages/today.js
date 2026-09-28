@@ -1,6 +1,7 @@
 /*
- * Today (r/index.php): refreshes the hero from api/today.php every minute
- * while a week is live, and re-renders the page when the moment changes
+ * Today (r/index.php): refreshes the hero from api/today.php while a week
+ * is live (every minute while a game is in play, every five otherwise; the
+ * scores themselves are scraped every 10), and re-renders the page when the moment changes
  * (a deadline passes, a game kicks off or ends, the mode flips).
  */
 P55.page('today', function (root, props) {
@@ -79,7 +80,10 @@ P55.page('today', function (root, props) {
 	function paint(data) {
 		var liveId = data.live_week ? data.live_week.id : null;
 		var pickId = data.pick_week ? data.pick_week.id : null;
-		if (data.mode !== props.mode || liveId !== props.live_week_id || pickId !== props.pick_week_id) {
+		// The LIVE marks and the hero's foot depend on whether anything is in play.
+		var inPlay = (data.in_play || 0) > 0;
+		if (data.mode !== props.mode || liveId !== props.live_week_id || pickId !== props.pick_week_id
+			|| inPlay !== (props.in_play > 0)) {
 			reload();
 			return;
 		}
@@ -97,7 +101,8 @@ P55.page('today', function (root, props) {
 			setText('[data-live="behind-text"]', l.behind_label);
 		}
 		var reorder = false;
-		(data.games || []).forEach(function (g) {
+		// The strip is only on the page in the live moment.
+		(root.querySelector('.strip') ? data.games || [] : []).forEach(function (g) {
 			var card = root.querySelector('[data-game="' + g.id + '"]');
 			if (!card) {
 				reorder = true;
@@ -109,13 +114,18 @@ P55.page('today', function (root, props) {
 			}
 			paintGame(card, g);
 		});
-		each('[data-live="fetched"]', function (el) {
-			el.setAttribute('data-reltime', data.fetched_at);
-			el.textContent = P55.relTime(data.fetched_at);
-		});
+		if (data.scores_at) {
+			each('[data-live="fetched"]', function (el) {
+				el.setAttribute('data-reltime', data.scores_at);
+				el.textContent = P55.relTime(data.scores_at);
+			});
+		}
 		if (reorder) {
 			reload();
+			return;
 		}
+		// The cron scrapes every 10 minutes: look every minute only while a game is on.
+		return inPlay ? 60000 : 300000;
 	}
 
 	// A deadline on the page passed (picks lock, picks open): the moment moved.
