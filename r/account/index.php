@@ -9,6 +9,7 @@ use Pick55\Models\UserFriendLink;
 use Pick55\R\Fmt;
 use Pick55\R\Icons;
 use Pick55\R\Shell;
+use Pick55\SiteVersion;
 
 Shell::guard();
 
@@ -250,7 +251,7 @@ ob_start();
 
 		<nav class="card card-flush enter account-links" style="--i: 4" aria-label="More">
 			<a class="link-row" href="<?=h($shell->link('rules.php'))?>"><?=Icons::svg('book-open')?><span>Rules</span><?=Icons::svg('chevron-right', 'link-chev')?></a>
-			<a class="link-row" href="<?=h($shell->classicLink(''))?>" data-native><?=Icons::svg('external-link')?><span>Classic site</span><?=Icons::svg('chevron-right', 'link-chev')?></a>
+			<a class="link-row" href="<?=h($shell->classicLink('?' . SiteVersion::PARAM . '=' . SiteVersion::CLASSIC))?>" data-native><?=Icons::svg('external-link')?><span>Classic site</span><?=Icons::svg('chevron-right', 'link-chev')?></a>
 			<?php if (Auth::isAdmin()): ?>
 				<a class="link-row" href="<?=h($shell->classicLink('admin/index.php'))?>" data-native><?=Icons::svg('shield')?><span>Admin</span><?=Icons::svg('chevron-right', 'link-chev')?></a>
 			<?php endif; ?>

@@ -4,6 +4,7 @@ namespace Pick55\R;
 
 use Pick55\Alert;
 use Pick55\Auth;
+use Pick55\SiteVersion;
 
 /**
  * The redesign's page shell (docs/redesign.md section 3): the document, the
@@ -71,6 +72,18 @@ class Shell
 	public function classicLink($rel = '')
 	{
 		return config('base_url') . ltrim((string) $rel, '/');
+	}
+
+	/**
+	 * The "Classic site" link: the current page on the classic site.
+	 * Following it saves the classic site as the visitor's choice
+	 * (SiteVersion); app.js keeps it current after a navigation.
+	 *
+	 * @return string
+	 */
+	public function classicSwitchLink()
+	{
+		return SiteVersion::switchLink(SiteVersion::CLASSIC);
 	}
 
 	/**
@@ -451,7 +464,6 @@ class Shell
 		$me = $authed ? Auth::user() : null;
 		$badges = $this->ctx->badges();
 		$page_html = $this->renderPage();
-		$classic_rel = self::currentRel();
 		ob_start();
 		?><!doctype html>
 <html lang="en" data-base="<?=h(self::basePath() . 'r/')?>">
@@ -513,7 +525,7 @@ class Shell
 			<span>&copy; <?=date('Y')?> Pick55</span>
 			<nav class="site-footer-links" aria-label="Footer">
 				<a href="<?=h($this->link('rules.php'))?>">Rules</a>
-				<a href="<?=h($this->classicLink($classic_rel))?>" data-native data-classic>Classic site</a>
+				<a href="<?=h($this->classicSwitchLink())?>" data-native data-classic>Classic site</a>
 				<?php if ($authed && Auth::isAdmin()): ?>
 					<a href="<?=h($this->classicLink('admin/index.php'))?>" data-native>Admin</a>
 				<?php endif; ?>
@@ -580,7 +592,7 @@ class Shell
 					</div>
 				</div>
 				<div class="menu-sep" role="separator"></div>
-				<a class="menu-item" href="<?=h($this->classicLink(self::currentRel()))?>" data-native data-classic><?=Icons::svg('external-link')?>Classic site</a>
+				<a class="menu-item" href="<?=h($this->classicSwitchLink())?>" data-native data-classic><?=Icons::svg('external-link')?>Classic site</a>
 				<?php if (Auth::isAdmin()): ?>
 					<a class="menu-item" href="<?=h($this->classicLink('admin/index.php'))?>" data-native><?=Icons::svg('shield')?>Admin</a>
 				<?php endif; ?>

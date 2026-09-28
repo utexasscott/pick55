@@ -102,28 +102,14 @@ class Page
 	/**
 	 * The redesigned site's (r/, "Version 2.0") counterpart of the current
 	 * page, query string included, when r/ has a page at the same relative
-	 * path; otherwise r/ itself.
+	 * path; otherwise r/ itself. Following it saves the redesign as the
+	 * visitor's choice (SiteVersion).
 	 *
 	 * @return string
 	 */
 	public function redesignLink()
 	{
-		$base = trim((string) parse_url((string) config('base_url'), PHP_URL_PATH), '/');
-		$base = $base === '' ? '/' : '/' . $base . '/';
-		$uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
-		$path = (string) parse_url($uri, PHP_URL_PATH);
-		$query = (string) parse_url($uri, PHP_URL_QUERY);
-		$rel = '';
-		if (strpos($path, $base) === 0) {
-			$rel = (string) substr($path, strlen($base));
-		}
-		if ($rel !== ''
-			&& preg_match('~^[A-Za-z0-9_-][A-Za-z0-9_/-]*\.php$~', $rel)
-			&& strpos($rel, 'admin/') !== 0
-			&& is_file(__DIR__ . '/../../r/' . $rel)) {
-			return $this->link('r/' . $rel . ($query !== '' ? '?' . $query : ''));
-		}
-		return $this->link('r/');
+		return h(SiteVersion::switchLink(SiteVersion::REDESIGN));
 	}
 
 	/**
@@ -319,6 +305,7 @@ class Page
 							['admin/games/index.php', 'Games'],
 							['admin/teams/index.php', 'Teams'],
 							['admin/formats/index.php', 'Formats'],
+							['admin/traffic/index.php', 'Traffic'],
 						] as $link): ?>
 							<a class="btn btn-sm btn-outline-light" href="<?=$this->link($link[0])?>"><?=$link[1]?></a>
 						<?php endforeach; ?>

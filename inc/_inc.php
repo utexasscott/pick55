@@ -194,5 +194,10 @@ require_once __DIR__ . '/funcs.php';
 use Pick55\App;
 $app = App::get();
 
+// Site tracking (docs/site-traffic.md), then the visitor's choice between
+// the classic site and the redesign (docs/site-version.md), which may redirect
+Pick55\Traffic::start();
+Pick55\SiteVersion::handle();
+
 // Global Post Handler
 require_once __DIR__ . '/global_post_handler.php';

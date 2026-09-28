@@ -345,7 +345,9 @@
 	}
 
 	function updateClassicLinks() {
+		// ?site=classic saves the classic site as the visitor's choice
 		var rel = relPath(location.href);
+		rel += (rel.indexOf('?') === -1 ? '?' : '&') + 'site=classic';
 		$$('[data-classic]').forEach(function (a) {
 			a.setAttribute('href', CLASSIC_BASE + rel);
 		});
@@ -380,6 +382,10 @@
 	function fetchFragment(href, init) {
 		init = init || {};
 		var headers = { 'X-P55-Partial': '1', 'X-Requested-With': 'fetch', 'Accept': 'application/json' };
+		if (init.prefetch) {
+			// Not a page view yet: site tracking skips it (see reportView)
+			headers['X-P55-Prefetch'] = '1';
+		}
 		return fetch(href, {
 			method: init.method || 'GET',
 			body: init.body,
@@ -466,11 +472,30 @@
 		if (prefetched[href] && Date.now() - prefetched[href].at < 10000) {
 			return;
 		}
-		var promise = fetchFragment(href);
+		var promise = fetchFragment(href, { prefetch: true });
 		promise.catch(function () {
 			delete prefetched[href];
 		});
 		prefetched[href] = { at: Date.now(), promise: promise };
+	}
+
+	/**
+	 * Tells site tracking that a prefetched page was shown: its request was
+	 * not counted, since a hover does not always end in a visit.
+	 */
+	function reportView(href) {
+		try {
+			fetch(BASE + 'api/hit.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+				body: JSON.stringify({ url: relPath(href) }),
+				credentials: 'same-origin',
+				keepalive: true
+			}).catch(function () {});
+		}
+		catch (e) {
+			// tracking never gets in the way of navigation
+		}
 	}
 
 	/**
@@ -493,13 +518,17 @@
 		var ctrl = window.AbortController ? new AbortController() : null;
 		inflight = ctrl;
 		progress.start();
-		var pending = (!opts.fresh && takePrefetch(url.href)) || fetchFragment(url.href, { signal: ctrl ? ctrl.signal : undefined });
+		var ready = !opts.fresh && takePrefetch(url.href);
+		var pending = ready || fetchFragment(url.href, { signal: ctrl ? ctrl.signal : undefined });
 		return pending.then(function (data) {
 			if (seq !== navSeq) {
 				return;
 			}
 			if (!isFragment(data)) {
 				throw new Error('Not a fragment');
+			}
+			if (ready) {
+				reportView(data.__url || url.href);
 			}
 			return apply(data, url, opts);
 		}).catch(function (err) {
