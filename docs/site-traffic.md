@@ -70,7 +70,9 @@ One row is about 300 bytes. The table is not pruned; at a few thousand views on 
 
 ## Applying to production
 
-The code tolerates a missing table, so no order is forced, but hits are only kept once the table exists (*Concept key: `ORDERED_HANDOVER`*): table first, then deploy. Claude's droplet MySQL account has no `CREATE` privilege, so the owner applies the file (*Concept key: `LIVE_WRITE_GATE`*). Owner, PowerShell:
+**State: applied by the owner 2026-09-28, grant included, and deployed.** Measured the same hour from Claude's account: the first rows arrived at 17:06 Central (the owner's own visits, including a switch to Version 2.0 recorded as a 302 on `r/index.php` followed by the page), the app's credential can write the table, `https://pick55.com/rules.php` with cookie `site_version=r` answers 302 to `//pick55.com/r/rules.php`, and `https://pick55.com/r/` with `site_version=classic` answers 302 to `//pick55.com/`.
+
+The steps, as they were run. The code tolerates a missing table, so no order is forced, but hits are only kept once the table exists (*Concept key: `ORDERED_HANDOVER`*): table first, then deploy. Claude's droplet MySQL account has no `CREATE` privilege, so the owner applies the file (*Concept key: `LIVE_WRITE_GATE`*). Owner, PowerShell:
 
 1. Copy the change files to the droplet:
    ```powershell
