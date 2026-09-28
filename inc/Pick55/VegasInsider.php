@@ -26,6 +26,10 @@ class VegasInsider
 	const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
 	const CONSENSUS_HEADER = 'Consensus';
 	const STAMP_FORMAT = 'Y-m-d-H-i-s';
+	// The site keeps showing a week until its last game is played (NFL: through Monday night).
+	// When no game on the default page kicks off more than this far ahead, scrape() moves on
+	// to the next week in the page's week picker.
+	const ENDING_WEEK_HOURS = 24;
 
 	/**
 	 * @return array league => URL
@@ -105,13 +109,20 @@ class VegasInsider
 	 * GETs the league's odds page and returns the HTML.
 	 *
 	 * @param string $league
+	 * @param string|null $week_key the site's week key ('2026-reg-4'); null for the page's default week
 	 * @return string
 	 * @throws Exception
 	 */
-	public static function fetch($league)
+	public static function fetch($league, $week_key = null)
 	{
 		$league = self::league($league);
 		$url = self::getUrls()[$league];
+		if ($week_key !== null) {
+			if (!preg_match('/^\d{4}-(pre|reg|post)-\d+$/', $week_key)) {
+				throw new Exception("Invalid week key '" . $week_key . "' (expected e.g. 2026-reg-4).");
+			}
+			$url .= '?week=' . $week_key;
+		}
 		$client = new Client([
 			'timeout' => 60,
 			'headers' => [
@@ -150,20 +161,96 @@ class VegasInsider
 	/**
 	 * Fetches, saves and parses one league. Returns the parsed games and the file paths.
 	 *
+	 * The default page shows the site's current week until its last game is played, so on a
+	 * Monday night the NFL page holds only the Monday game. When the default page has no game
+	 * kicking off more than ENDING_WEEK_HOURS ahead, the next week in its week picker is fetched
+	 * instead, and kept if it has games. Only the page kept is saved.
+	 *
 	 * @param string $league
-	 * @return array ['html' => path, 'json' => path, 'games' => array]
+	 * @return array ['html' => path, 'json' => path, 'games' => array, 'week' => string]
+	 *   week: the page's week label, plus the key when the next week was followed
 	 * @throws Exception
 	 */
 	public static function scrape($league)
 	{
 		$html = self::fetch($league);
+		$picker = self::weekPicker($html);
+		$week = $picker['current'] ? $picker['current'] : 'default week';
+		if (self::isEndingWeek(self::parse($html)) && $picker['next_key']) {
+			$next_html = self::fetch($league, $picker['next_key']);
+			if (sizeof(self::parse($next_html)) > 0) {
+				$html = $next_html;
+				$week = $picker['next'] . ' (' . $picker['next_key'] . ', followed from ' . $week . ')';
+			}
+		}
 		$html_path = self::saveRaw($league, $html);
 		$games = self::parseFile($html_path);
 		return [
 			'html' => $html_path,
 			'json' => self::jsonPathFor($html_path),
 			'games' => $games,
+			'week' => $week,
 		];
+	}
+
+	/**
+	 * True when no game on a parsed page kicks off more than ENDING_WEEK_HOURS from now
+	 * (including a page with no unplayed games at all).
+	 *
+	 * @param array $games from parse()
+	 * @return bool
+	 */
+	public static function isEndingWeek(array $games)
+	{
+		$cutoff = time() + self::ENDING_WEEK_HOURS * 3600;
+		foreach ($games as $game) {
+			$ts = strtotime($game['kickoff_utc']);
+			if ($ts && $ts > $cutoff) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Reads the page's week picker (ul#week-picker-week; the current week's li has class active).
+	 *
+	 * @param string $html
+	 * @return array ['current' => label|null, 'next' => label|null, 'next_key' => '2026-reg-4'|null]
+	 */
+	public static function weekPicker($html)
+	{
+		$out = ['current' => null, 'next' => null, 'next_key' => null];
+		if (!class_exists('DOMDocument')) {
+			return $out;
+		}
+		$dom = new DOMDocument();
+		$prev = libxml_use_internal_errors(true);
+		$dom->loadHTML($html);
+		libxml_clear_errors();
+		libxml_use_internal_errors($prev);
+		$xpath = new DOMXPath($dom);
+
+		$active = false;
+		foreach (XHelper::getNodes($xpath, "//ul[@id='week-picker-week']/li") as $li) {
+			$span = XHelper::getNode($xpath, ".//*[@data-endpoint]", $li);
+			if (!$span) {
+				continue;
+			}
+			$label = trim(preg_replace('/\s+/', ' ', $span->textContent));
+			if ($active) {
+				if (preg_match('/[?&]week=(\d{4}-(?:pre|reg|post)-\d+)/', $span->getAttribute('data-endpoint'), $m)) {
+					$out['next'] = $label;
+					$out['next_key'] = $m[1];
+				}
+				break;
+			}
+			if (XHelper::nodeHasClass($li, 'active')) {
+				$out['current'] = $label;
+				$active = true;
+			}
+		}
+		return $out;
 	}
 
 	/**

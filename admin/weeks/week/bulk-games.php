@@ -191,7 +191,7 @@ if (is_post()) {
 				foreach (array_keys(VegasInsider::getUrls()) as $league) {
 					try {
 						$result = VegasInsider::scrape($league);
-						Alert::success("Scraped " . $league . ": " . sizeof($result['games']) . " games.");
+						Alert::success("Scraped " . $league . " " . h($result['week']) . ": " . sizeof($result['games']) . " games.");
 					}
 					catch (Throwable $e) {
 						// Throwable, not Exception: a missing extension is an Error and would otherwise be a blank 500.

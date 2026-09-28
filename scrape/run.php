@@ -57,7 +57,7 @@ $exit = 0;
 foreach (array_keys(VegasInsider::getUrls()) as $league) {
 	try {
 		$result = VegasInsider::scrape($league);
-		VegasInsider::log($week_label . ': ' . $league . ' ' . sizeof($result['games']) . ' games -> ' . $result['json']);
+		VegasInsider::log($week_label . ': ' . $league . ' ' . $result['week'] . ', ' . sizeof($result['games']) . ' games -> ' . $result['json']);
 	}
 	catch (Exception $e) {
 		VegasInsider::log($week_label . ': ' . $league . ' FAILED: ' . $e->getMessage());
