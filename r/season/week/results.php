@@ -310,14 +310,19 @@ foreach ($games as $id => $game) {
 		$state = GameScore::STATE_POST;
 		$label = 'Final';
 	}
+	// The card's group on the page: in play, then to come, then finished
+	// (results.js derives the same from data-correct and data-state).
 	if ($decided || $state === GameScore::STATE_POST) {
 		$counts['final']++;
+		$bucket = 2;
 	}
 	elseif ($state === GameScore::STATE_IN) {
 		$counts['in']++;
+		$bucket = 0;
 	}
 	else {
 		$counts['upcoming']++;
+		$bucket = 1;
 	}
 	$what_if = (!$decided && isset($what_ifs[(string) $id])) ? $what_ifs[(string) $id] : null;
 	if ($what_if !== null) {
@@ -365,6 +370,8 @@ foreach ($games as $id => $game) {
 		'ou' => $ou,
 		'decided' => $decided,
 		'state' => $state,
+		'bucket' => $bucket,
+		'order' => sizeof($cards),
 		'label' => $label,
 		'leading' => $leading,
 		'has_score' => $has_score,
@@ -376,6 +383,15 @@ foreach ($games as $id => $game) {
 		'colors' => $colors,
 		'sides' => $side_data,
 	];
+}
+// In play first, then to come, then finished, each in kickoff order.
+uasort($cards, function ($a, $b) {
+	return [$a['bucket'], $a['order']] <=> [$b['bucket'], $b['order']];
+});
+// The day headings name their group while the week has more than one.
+$bucket_labels = [];
+if (sizeof(array_filter($counts)) > 1) {
+	$bucket_labels = [0 => 'Live', 1 => 'Upcoming', 2 => 'Final'];
 }
 $poll = $overall['num_unknowns'] > 0;
 
@@ -879,14 +895,14 @@ ob_start();
 			<?php foreach ($cards as $id => $c): ?>
 				<?php
 				$game = $c['game'];
-				$this_day = (string) $game->date;
+				$this_day = $c['bucket'] . ' ' . $game->date;
 				if ($this_day !== $day):
 					if ($day !== null) {
 						print '</div>';
 					}
 					$day = $this_day;
 					?>
-					<h3 class="day-head"><?=h(date('l, M j', strtotime($this_day)))?></h3>
+					<h3 class="day-head"><?php if (isset($bucket_labels[$c['bucket']])): ?><span class="day-group day-group-<?=(int) $c['bucket']?>"><?=h($bucket_labels[$c['bucket']])?></span> &middot; <?php endif; ?><?=h(date('l, M j', strtotime($game->date)))?></h3>
 					<div class="game-list">
 				<?php endif; ?>
 				<?php

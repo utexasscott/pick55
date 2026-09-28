@@ -503,6 +503,11 @@
 					reload();
 					return 0;
 				}
+				// A game kicked off or ended: it belongs to another group of the list.
+				if (card && card.getAttribute('data-correct') === '0' && card.getAttribute('data-state') !== games[ids[i]].state) {
+					reload();
+					return 0;
+				}
 			}
 			ids.forEach(function (id) {
 				var card = $('.game[data-game="' + id + '"]');

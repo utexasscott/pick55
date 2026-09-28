@@ -403,6 +403,14 @@
 	text-transform: uppercase;
 }
 
+.page-results .day-group {
+	color: var(--fg);
+}
+
+.page-results .day-group-0 {
+	color: var(--live);
+}
+
 .page-results .game-list {
 	display: grid;
 	gap: var(--s-3);
@@ -575,9 +583,10 @@
 	text-transform: uppercase;
 }
 
+/* Neutral on purpose: green is for a side the result has made right. */
 .page-results .lead-mark {
-	background: var(--good);
-	color: var(--bg-elev);
+	background: var(--bg-sunken);
+	color: var(--fg-muted);
 }
 
 .page-results .lead-mark .icon {
@@ -590,11 +599,6 @@
 	display: inline-flex;
 	background: var(--accent-soft);
 	color: var(--accent);
-}
-
-.page-results .side.is-leading {
-	border-color: color-mix(in srgb, var(--good) 55%, transparent);
-	background: color-mix(in srgb, var(--good-soft) 60%, var(--bg-elev));
 }
 
 .page-results .side.is-leading .lead-mark {
