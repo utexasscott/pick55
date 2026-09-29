@@ -59,6 +59,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - `inc/Pick55/Snippets/` — static `build(array $params)` HTML/email fragment renderers, each with a short `b(...)` shortcut
 - `scrape/` — VegasInsider odds scraper CLIs (`get-raw.php`, `parse-raw.php`, `run.php` for cron, `slate.php` for the `/pick-games` skill) over `inc/Pick55/VegasInsider.php`; output under git-ignored `scrape/raw/`; see [docs/odds-scraper.md](docs/odds-scraper.md). `live-scores.php` is the 10-minute live-scores cron over `inc/Pick55/Espn.php`; see [docs/live-scores.md](docs/live-scores.md)
 - `.claude/skills/` — project skills, committed; `pick-games` chooses a week's lines from the scrape
+- `.claude/agents/` — project subagents, committed; `ui-designer` designs, builds and browser-checks player-facing UI (mainly `r/`) against [docs/redesign.md](docs/redesign.md), updates that doc, and leaves committing to the main session
 - `static/` — vendored CSS/JS (Bootstrap, Font Awesome, jQuery, Chart.js, stupidtable), `global.css`, `global.js`
 - `scripts/` — droplet-side shell scripts (provisioning, git cutover, deploy); see [docs/deploy.md](docs/deploy.md)
 - `docs/` — project documentation (see above)
