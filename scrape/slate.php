@@ -74,12 +74,21 @@ function load_teams(array $opts)
 		}
 		$header = null;
 		foreach ($lines as $line) {
+			// Windows PowerShell's Out-File -Encoding utf8 (the skill's dump command) writes a BOM;
+			// left in, it renames the first column and every team id comes out as 0.
+			$line = preg_replace('/^\xEF\xBB\xBF/', '', $line);
 			if (substr($line, 0, 2) == '**') {
 				continue; // ssh banner lines that leaked into the dump
 			}
-			$cols = explode("\t", $line);
+			$cols = explode("\t", rtrim($line, "\r"));
 			if ($header === null) {
 				$header = $cols;
+				foreach (['id', 'type', 'team', 'nickname', 'vegas_insider_url'] as $col) {
+					if (!in_array($col, $header)) {
+						fwrite(STDERR, "--teams file has no '" . $col . "' column in its header: " . $line . "\n");
+						exit(2);
+					}
+				}
 				continue;
 			}
 			$row = [];

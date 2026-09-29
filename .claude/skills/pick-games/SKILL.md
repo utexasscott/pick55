@@ -37,10 +37,12 @@ Everything below is PowerShell with absolute paths (CLAUDE.md). Nothing writes t
 1. **Find the target week.** The owner usually names it (the `week_id` in a `bulk-games.php` link). Otherwise it is the first week of the active season with no games:
 
    ```powershell
-   ssh pick55 "mysql pick -e \"SELECT w.id, w.week_num, w.picks_due_date, (SELECT COUNT(*) FROM football_games g WHERE g.football_week_id=w.id) games FROM football_weeks w JOIN football_seasons s ON s.id=w.football_season_id WHERE s.is_active=1 ORDER BY w.week_num\""
+   "SELECT w.id, w.week_num, w.picks_due_date, (SELECT COUNT(*) FROM football_games g WHERE g.football_week_id=w.id) games FROM football_weeks w JOIN football_seasons s ON s.id=w.football_season_id WHERE s.is_active=1 ORDER BY w.week_num" | ssh pick55 "mysql pick"
    ```
 
-   If the week already has rows, stop and say so; adding to a populated week is a different job (the owner may want a replacement, which means a `DELETE` under the gate first).
+   (The SQL goes in on stdin because Windows PowerShell 5.1 mangles `\"` inside an ssh argument; the `ssh pick55 "mysql pick -e \"...\""` form fails on `COUNT(*)`.)
+
+   If the week already has rows, stop and say so; adding to a populated week is a different job (the owner may want a replacement, which means a `DELETE` under the gate first). `picks_due_date` is when the week **opens** for picks (`Week::getPicksAvailableAt()`), and `admin/weeks/week/bulk-games.php` stops creating games after it (`canCreateGames()`). If it is close, tell the owner the go should come before then.
 
 2. **Scrape fresh, locally.** Lines move; do not pick from a stale file. This writes `scrape/raw/vegas-insider/<league>/<stamp>.json` on this machine:
 
@@ -51,14 +53,20 @@ Everything below is PowerShell with absolute paths (CLAUDE.md). Nothing writes t
 3. **Dump production's teams** so ids and slugs match what the rows will reference (the local database can lag production's team edits):
 
    ```powershell
-   ssh pick55 "mysql pick -e \"SELECT id, type, team, nickname, vegas_insider_url FROM football_teams WHERE vegas_insider_url IS NOT NULL AND vegas_insider_url<>'' ORDER BY type, id\"" 2>$null | Out-File -Encoding utf8 C:\Users\utexa\AppData\Local\Temp\pick55-teams.tsv
+   "SELECT id, type, team, nickname, vegas_insider_url FROM football_teams WHERE vegas_insider_url IS NOT NULL AND vegas_insider_url<>'' ORDER BY type, id" | ssh pick55 "mysql pick" 2>$null | Out-File -Encoding utf8 C:\Users\utexa\AppData\Local\Temp\pick55-teams.tsv
    ```
 
-   (`2>$null` drops the ssh banner; `slate.php` also skips any `**` lines that leak through.)
+   (`2>$null` drops the ssh banner; `slate.php` also skips any `**` lines that leak through, and strips the BOM `Out-File -Encoding utf8` writes. Before that fix, on 2026-09-29, the BOM renamed the `id` column and every team id in the SQL came out as 0.)
 
-4. **Get the AP Top 25.** Fetch `https://www.ncaa.com/rankings/football/fbs/associated-press` (WebFetch works on it; apnews.com is blocked) and write a JSON object of VegasInsider slug → rank to `C:\Users\utexa\AppData\Local\Temp\pick55-rankings.json`, for example `{"texas": 1, "georgia": 2, ...}`. Slugs are the `away_team`/`home_team` values in the scrape JSON: lowercase, spaces to hyphens, punctuation dropped. Ones that are not obvious: Southern Cal → `usc`, Miami (FL) → `miami-fl`, Texas A&M → `texas-am`, Ole Miss → `ole-miss`, Mississippi State → `mississippi-state`, NC State → `nc-state`, Pitt → `pittsburgh`, Hawaii → `hawaii`. Confirm every slug you write appears in the scrape (grep the JSON) so a typo does not silently unrank a team. The `football_teams.ranking` column is a 2013-era leftover; ignore it.
+4. **Get the AP Top 25.** Fetch `https://www.ncaa.com/rankings/football/fbs/associated-press` (WebFetch works on it; apnews.com is blocked) and write a JSON object of VegasInsider slug → rank to `C:\Users\utexa\AppData\Local\Temp\pick55-rankings.json`, for example `{"texas": 1, "georgia": 2, ...}`. Slugs are the `away_team`/`home_team` values in the scrape JSON: lowercase, spaces to hyphens, punctuation dropped. Ones that are not obvious: Southern Cal → `usc`, Miami (FL) → `miami-fl`, Texas A&M → `texas-am`, Ole Miss → `ole-miss`, Mississippi State → `mississippi-state`, NC State → `nc-state`, Pitt → `pittsburgh`, Hawaii → `hawaii`. Confirm every slug you write appears in the scrape (grep the JSON) so a typo does not silently unrank a team. A ranked team missing from the scrape is usually on a bye or playing an FCS team with no line; ESPN's schedule page (`https://www.espn.com/college-football/schedule/_/week/N/year/YYYY/seasontype/2`) settles which. The `football_teams.ranking` column is a 2013-era leftover; ignore it. On 2026-09-29 ncaa.com came back empty to WebFetch twice; `https://www.espn.com/college-football/rankings` and `https://www.cbssports.com/college-football/rankings/ap/` both worked and agreed. Their "previous" column reads as movement, not last week's rank; only the rank matters here.
 
-5. **Get ESPN FPI for both leagues.** Fetch `https://www.espn.com/nfl/fpi` (all 32 teams) and `https://www.espn.com/college-football/fpi` (the top 40 is enough) and write `C:\Users\utexa\AppData\Local\Temp\pick55-fpi.json` as `{"NFL": {"49ers": 1, "bills": 2, ...}, "NCAA": {"ohio-state": 1, "texas": 2, ...}}`, FPI **rank** per VegasInsider slug. NFL slugs are the nickname in lowercase (`49ers`, `commanders`, `chiefs`); NCAA slugs as in step 4. Both pages fetched fine on 2026-09-25 (NFL updated daily, college weekly). Note anything else that makes a game big this week (a rivalry, a first-place matchup, a returning quarterback) if you know it; do not invent storylines. Do not use won-lost records; they say little before November.
+5. **Get ESPN FPI for both leagues.** Fetch `https://www.espn.com/nfl/fpi` (all 32 teams) and `https://www.espn.com/college-football/fpi` (the top 40 is enough) and write `C:\Users\utexa\AppData\Local\Temp\pick55-fpi.json` as `{"NFL": {"49ers": 1, "bills": 2, ...}, "NCAA": {"ohio-state": 1, "texas": 2, ...}}`, FPI **rank** per VegasInsider slug. NFL slugs are the nickname in lowercase (`49ers`, `commanders`, `chiefs`); NCAA slugs as in step 4. Both pages fetched fine on 2026-09-25 (NFL updated daily, college weekly). WebFetch's summary of these tables can swap rows (2026-09-29: two runs disagreed on the Dolphins and Buccaneers at 30 and 32), so take exact ranks from ESPN's JSON API, which lists teams in FPI order with `team.nickname`:
+
+   ```powershell
+   curl.exe -s "https://site.web.api.espn.com/apis/fitt/v3/sports/football/nfl/powerindex?region=us&lang=en&season=2026&limit=40" -o C:\Users\utexa\AppData\Local\Temp\pick55-nfl-fpi.json
+   ```
+
+   The college one is the same URL with `college-football` for `nfl` and `limit=60`. Note anything else that makes a game big this week (a rivalry, a first-place matchup, a returning quarterback) if you know it; do not invent storylines. Do not use won-lost records; they say little before November.
 
 6. **Print the board.**
 
