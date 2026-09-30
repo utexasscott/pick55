@@ -229,20 +229,6 @@ foreach ($games as $game) {
 			];
 		}
 	}
-	if ($ou) {
-		$line = 'Total ' . $total;
-	}
-	else {
-		$line = '';
-		foreach ([1, 2] as $opt) {
-			if (strpos($sides[$opt]['line'], "\u{2212}") === 0) {
-				$line = $sides[$opt]['name'] . ' ' . $sides[$opt]['line'];
-			}
-		}
-		if ($line === '') {
-			$line = 'Pick ' . "\u{2019}" . 'em';
-		}
-	}
 	$bet = isset($bets[(int) $game->id]) ? $bets[(int) $game->id] : null;
 	$rows[] = [
 		'id' => (int) $game->id,
@@ -252,7 +238,6 @@ foreach ($games as $game) {
 		'matchup' => $matchup,
 		'kickoff' => Fmt::kickoff($game->date, $game->time, $ctx->now),
 		'kickoff_at' => Fmt::iso($kick($game)),
-		'line' => $line,
 		'sides' => $sides,
 		'option' => $bet ? $bet['option'] : 0,
 	];
@@ -400,13 +385,11 @@ ob_start();
 						<li class="pk-card<?=$v === 0 ? ' is-zero' : ''?><?=$guaranteed_at($i) ? ' is-guaranteed' : ''?><?=in_array($row['option'], [1, 2, 3], true) ? ' is-picked' : ''?>" data-game="<?=(int) $row['id']?>" data-option="<?=(int) $row['option']?>">
 							<div class="pk-card-body">
 								<div class="pk-meta">
-									<span class="tag tag-<?=$row['league'] === 'NFL' ? 'nfl' : 'ncaa'?>"><?=h($row['league'])?></span>
-									<span class="tag <?=$row['ou'] ? 'tag-ou' : 'tag-spread'?>"><?=$row['ou'] ? 'O/U' : 'Spread'?></span>
-									<span class="pk-kick truncate"><?=h($row['kickoff'])?></span>
+									<span class="pk-kick truncate"><?=h($row['league'])?> &middot; <?=h($row['kickoff'])?></span>
 									<span class="pk-flag-g pill pill-accent"><?=Icons::svg('check')?>Guaranteed</span>
 									<span class="pk-flag-zero">0 pts</span>
 								</div>
-								<div class="pk-title truncate" title="<?=h($row['title'])?>"><?=h($row['matchup'])?> <span class="pk-line"><?=h($row['line'])?></span></div>
+								<div class="pk-title truncate" title="<?=h($row['title'])?>"><?=h($row['matchup'])?></div>
 								<div class="pk-sides" role="group" aria-label="<?=h('Your pick for ' . $row['title'])?>">
 									<?php foreach ($row['sides'] as $opt => $side): ?>
 										<button

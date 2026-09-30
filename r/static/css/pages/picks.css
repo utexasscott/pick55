@@ -50,12 +50,12 @@
 	min-width: 0;
 }
 
+/* Opaque, not glass: the panel sits right over the points rail as the list
+ * scrolls, and the big rail numbers showed through a translucent panel. */
 .page-picks .pk-summary-card {
 	padding: 10px 12px;
 	border-radius: var(--r-3);
-	background: var(--bg-glass);
-	-webkit-backdrop-filter: saturate(1.6) blur(16px);
-	backdrop-filter: saturate(1.6) blur(16px);
+	background: var(--bg-elev);
 	box-shadow: var(--sh-2);
 }
 
@@ -459,13 +459,6 @@
 	letter-spacing: -0.005em;
 }
 
-.page-picks .pk-line {
-	margin-left: 4px;
-	color: var(--fg-faint);
-	font-size: 0.82rem;
-	font-weight: 650;
-}
-
 .page-picks .pk-sides {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -818,9 +811,6 @@
 
 	.page-picks .pk-summary-card {
 		padding: var(--s-5);
-		background: var(--bg-elev);
-		-webkit-backdrop-filter: none;
-		backdrop-filter: none;
 		box-shadow: var(--sh-1);
 	}
 
