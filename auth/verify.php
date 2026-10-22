@@ -10,8 +10,12 @@ use Pick55\Models\UsersSeasonsLink;
 
 Auth::guardGuest();
 
-$signup = Signup::where('verify_token', 'LIKE', get('token'))
-	->first();
+$token = trim((string) get('token'));
+$signup = null;
+if (strlen($token) >= 16) {
+	$signup = Signup::where('verify_token', '=', $token)
+		->first();
+}
 if (!$signup) {
 	redir('auth/signup.php');
 }

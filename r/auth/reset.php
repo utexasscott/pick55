@@ -13,7 +13,7 @@ Shell::guardGuest();
 $token = trim((string) get('token'));
 $user = null;
 if (strlen($token) >= 16) {
-	$user = User::where('reset_token', 'LIKE', $token)
+	$user = User::where('reset_token', '=', $token)
 		->first();
 }
 if (!$user) {

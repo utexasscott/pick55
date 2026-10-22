@@ -92,6 +92,11 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - Passwords are `sha1(md5(salt . password))` (legacy scheme); tokens are `sha1(uniqid(mt_rand(), true))`.
 - Logins last `LOGIN_LIFETIME` (30 days, `inc/_inc.php`) past the latest visit, one remember-me token per device in `er_users_remember_tokens`; production purges server-side sessions after 24 minutes and the token signs the player straight back in. See [docs/login-sessions.md](docs/login-sessions.md).
 - Several places build SQL by string interpolation (e.g. `season/week/save-picks.php`); values there are pre-validated ints. Prefer query builder bindings for new code.
+- Look up emails and tokens with `'='`, never `'LIKE'`, and refuse a missing token before querying.
+  - `LIKE` treats `%` and `_` from user input as wildcards.
+  - Eloquent turns `where($col, 'LIKE', null)` into `$col IS NOT NULL`.
+  - Together these let anyone reset the first user's password until 2026-10-22.
+  - `email` is `utf8_unicode_ci`, so `=` is case-insensitive.
 - `Emailer` honors `dev_email_redir` in config to reroute all mail in dev.
 - The project was migrated from SVN (Beanstalk, r146) to git on 2026-09-04; the old `trunk/` prefix is gone, so local URLs are `/pick55/` not `/pick55/trunk/`.
 - A visitor who chose a site (cookie `site_version`) is redirected off the other site's pages on every GET, before the page's own code runs; when testing a classic page with curl or a browser that once followed a switch link, a 302 to `r/` is that, not a bug. `redir('')` redirects to the current URL, not to the home page. See [docs/site-version.md](docs/site-version.md).

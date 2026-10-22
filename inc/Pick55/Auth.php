@@ -50,7 +50,7 @@ class Auth
 	 */
 	public static function convertSignup(Signup $signup)
 	{
-		$user = User::where('email', 'LIKE', $signup->email)
+		$user = User::where('email', '=', $signup->email)
 			->first();
 		if ($user) {
 			return $user;
@@ -96,10 +96,10 @@ class Auth
 		$email = strtolower(trim(post('email')));
 		$first_name = trim(post('first_name'));
 		$last_name = trim(post('last_name'));
-		$user = User::where('email', 'LIKE', $email)
+		$user = User::where('email', '=', $email)
 			->first();
 		if ($user) return false;
-		$signup = Signup::where('email', 'LIKE', $email)
+		$signup = Signup::where('email', '=', $email)
 			->first();
 		if (!$signup) {
 			$verify_token = md5(self::token());
@@ -136,7 +136,7 @@ class Auth
 	{
 		$email = trim($email);
 		if (!strlen($email)) return;
-		$user = User::where('email', 'LIKE', $email)
+		$user = User::where('email', '=', $email)
 			->first();
 		if (!$user) return;
 		if (!self::sendResetPasswordEmail($user)) {
@@ -204,7 +204,7 @@ class Auth
 		$email = trim($email);
 		if (!strlen($email)) return null;
 		if (!strlen($password)) return null;
-		$user = User::where('email', 'LIKE', $email)
+		$user = User::where('email', '=', $email)
 			->first();
 		if (!$user) return null;
 		if (!$user->password || !strlen($user->password)) return null;

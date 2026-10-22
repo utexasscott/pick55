@@ -13,8 +13,12 @@ $page = new Page;
 $page->setTitle('Reset Password');
 $page->options['header']['show_links'] = false;
 
-$user = User::where('reset_token', 'LIKE', get('token'))
-	->first();
+$token = trim((string) get('token'));
+$user = null;
+if (strlen($token) >= 16) {
+	$user = User::where('reset_token', '=', $token)
+		->first();
+}
 if (!$user) {
 	redir('auth/login.php');
 }

@@ -16,7 +16,7 @@ Shell::guardGuest();
 $token = trim((string) get('token'));
 $signup = null;
 if (strlen($token) >= 16) {
-	$signup = Signup::where('verify_token', 'LIKE', $token)
+	$signup = Signup::where('verify_token', '=', $token)
 		->first();
 }
 if (!$signup) {
