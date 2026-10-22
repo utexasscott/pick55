@@ -53,7 +53,7 @@ ssh root@143.198.236.171 "bash /home/beanstalk/pick55/scripts/deploy.sh"
 
 **State:** cutover run by the owner 2026-09-25 15:12 CDT, verified from `claude` the same hour: `/home/beanstalk/pick55` is a clone at `4262ad7`, `inc/_config.php` is `beanstalk:www-data` mode 640 (no longer readable by `claude`), `cache/` is `www-data:beanstalk` 775, `scrape/raw/` carried over, `/` and `/rules.php` return 200. The SVN export is parked at `/home/beanstalk/pick55.svn-149` and can be deleted once a few deploys have gone through. `git` commands run as `claude` in that tree fail with *dubious ownership*; that is expected and harmless.
 
-The droplet's CLI `php` is 8.0 while Apache serves through 7.4, so `composer install` resolves under 8.0 and the site runs under 7.4. The lock file already satisfies both (it was regenerated on the droplet in SVN r147–149).
+The droplet's CLI `php` is 8.0 while Apache serves through 7.4, so `composer install` resolves under 8.0 and the site runs under 7.4. The lock file satisfies both. It was last regenerated 2026-10-22 under the local PHP 7.4, moving Carbon 2.53→2.73, illuminate 8.61→8.83.27, SendGrid 7.9→7.11.5 and Guzzle 7.3→7.16 for PHP 8.3 readiness and 21 security advisories. A `composer install --no-dev --dry-run` of it on the droplet (Composer 2.1.6, PHP 8.0.10) passed every platform check.
 
 ## PHP2Shell (CVE-2026-109618 / CVE-2026-109619)
 
