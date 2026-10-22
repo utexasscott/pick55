@@ -1,0 +1,15 @@
+#cloud-config
+# Paste into DigitalOcean's "User data" box when creating the 2026 droplet
+# (docs/droplet-migration.md). On first boot it sets US Central time and creates
+# Claude's account with its existing public key (the same one as on the old droplet)
+# and temporary passwordless sudo for the setup; that sudo is removed before cutover.
+# Root keeps whatever login was chosen in the DigitalOcean form.
+timezone: America/Chicago
+users:
+  - default
+  - name: claude
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBlb3+QiflqeJp0/ogqgumN55LeD1VAaMzXXIylujdeT claude@pick55-droplet

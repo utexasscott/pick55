@@ -7,7 +7,8 @@
 | Decision | Choice | By |
 |---|---|---|
 | Size | DigitalOcean Basic, 2 GB / 1 vCPU, same region as today (sfo3) | owner, 2026-10-22 |
-| OS and stack | **Recommended: Ubuntu 26.04 LTS** with its own PHP 8.5 and MySQL 8.4 LTS, supported to 2031; the local test below passed. The fallback is Ubuntu 24.04 with PHP 8.3 and MySQL 8.4 from Oracle's apt repository, since 24.04's own MySQL 8.0 went end-of-life upstream in April 2026. | Claude; awaiting the owner |
+| OS and stack | **Ubuntu 26.04 LTS** with its own PHP 8.5 and MySQL 8.4 LTS, supported to 2031; the local test below passed. The alternative was Ubuntu 24.04 with PHP 8.3 and MySQL 8.4 from Oracle's apt repository, since 24.04's own MySQL 8.0 went end-of-life upstream in April 2026. | owner, 2026-10-22 |
+| Setup access | Claude gets temporary passwordless sudo on the new box and does the setup itself. The droplet's "User data" ([`new-droplet-user-data.yaml`](../scripts/new-droplet-user-data.yaml), cloud-init) creates the `claude` account with the same public key as on the old box. The sudo rule, in `/etc/sudoers.d/90-cloud-init-users`, is removed before cutover, leaving `claude` as limited as on the old box. | owner, 2026-10-22 |
 | Web server | Apache 2.4 with PHP-FPM (`mpm_event`). The root `.htaccess` keeps working (`AllowOverride All`). | Claude |
 | pick9.golf | Moves too, as a second site | owner, 2026-10-22 |
 | phpMyAdmin | Not installed. Database work goes over SSH. | owner, 2026-10-22 |
@@ -76,4 +77,4 @@ A subagent loaded a mysqldump of the local `pick` database (5.7) into a private 
 
 ## State
 
-- 2026-10-22: Decisions above. pick9's takeover hole is patched on the old box. The local stack test passed, and its fixes are committed (`fbd0103`, `5784420`). Next: the owner confirms the OS and creates the droplet, and Claude writes the setup script.
+- 2026-10-22: Decisions above. pick9's takeover hole is patched on the old box. The local stack test passed, and its fixes are committed (`fbd0103`, `5784420`). The owner chose Ubuntu 26.04 and temporary sudo for setup. Next: the owner creates the droplet with the user data, and Claude sets it up.
