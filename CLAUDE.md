@@ -28,6 +28,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 | Question | Doc |
 |---|---|
 | How does code reach the droplet? | [docs/deploy.md](docs/deploy.md) |
+| How is production moving to the new droplet (2026)? What was decided? | [docs/droplet-migration.md](docs/droplet-migration.md) |
 | How does Claude reach the local or production DB? Schema changes? | [docs/database-access.md](docs/database-access.md) |
 | How do game lines get scraped from VegasInsider? | [docs/odds-scraper.md](docs/odds-scraper.md) |
 | How does Claude pick a week's 14 games from the scrape? | `/pick-games` skill: [.claude/skills/pick-games/SKILL.md](.claude/skills/pick-games/SKILL.md) |
