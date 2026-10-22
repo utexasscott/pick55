@@ -74,7 +74,7 @@ Nothing on the site posts multipart. Since 2026-10-22 the `r/` async forms send 
 
 `--undo` removes both. The third published mitigation, `memory_limit = -1`, is left out. On 985 MB, with prefork workers and MySQL on the same box, it trades the RCE for one request that can exhaust memory.
 
-**Fix:** not chosen yet (owner). This box can only be patched by building PHP 7.4 from source with the backport, on an OS that has been end-of-life since 2023. The alternative is a new droplet on a supported Ubuntu with a fixed PHP 8.x, after checking the app on that version.
+**Fix:** a new droplet on Ubuntu 24.04 with its own PHP 8.3 packages, which get security fixes through apt (owner, 2026-10-22). The first step is a local check that the app runs on PHP 8.3. Patching this box would mean building PHP 7.4 from source with the backport, on an OS that has been end-of-life since 2023.
 
 **State:** the stopgap script was written 2026-10-22 and has not been run yet.
 

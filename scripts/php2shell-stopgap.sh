@@ -30,9 +30,10 @@ if [ "${1:-}" = "--undo" ]; then
 	exit 0
 fi
 
+# m#...#, not /...\/.../: Apache 2.4.29 cannot compile an escaped slash in /.../
 cat > "$CONF" <<'EOF'
 # PHP2Shell stopgap from pick55 scripts/php2shell-stopgap.sh; remove once PHP is patched.
-<If "%{HTTP:Content-Type} =~ /multipart\/form-data/i">
+<If "%{HTTP:Content-Type} =~ m#multipart/form-data#i">
 	Require all denied
 </If>
 EOF
