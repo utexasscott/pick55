@@ -32,7 +32,8 @@ foreach ($stats['players'] as $p) {
 usort($regulars, function ($a, $b) {
 	if ($a['perfect'] != $b['perfect']) return $b['perfect'] - $a['perfect'];
 	if ($a['perfect'] + $a['honor'] != $b['perfect'] + $b['honor']) return ($b['perfect'] + $b['honor']) - ($a['perfect'] + $a['honor']);
-	return $a['weeks'] - $b['weeks'];
+	if ($a['weeks'] != $b['weeks']) return $a['weeks'] - $b['weeks'];
+	return $a['user_id'] - $b['user_id'];
 });
 $regulars = array_slice($regulars, 0, 10);
 

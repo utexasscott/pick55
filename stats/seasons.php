@@ -18,7 +18,8 @@ $rows = array_filter($stats['player_seasons'], function ($ps) use ($seasons) {
 usort($rows, function ($a, $b) {
 	if ($a['points'] != $b['points']) return $b['points'] - $a['points'];
 	if ($a['right'] != $b['right']) return $b['right'] - $a['right'];
-	return $b['season_id'] - $a['season_id'];
+	if ($a['season_id'] != $b['season_id']) return $b['season_id'] - $a['season_id'];
+	return $a['user_id'] - $b['user_id'];
 });
 $complete = array_filter($rows, function ($ps) use ($seasons) {
 	return $ps['weeks'] >= $seasons[$ps['season_id']]['num_weeks'];

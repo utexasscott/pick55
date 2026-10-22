@@ -61,7 +61,7 @@ class AllTimeStats
 	{
 		// Bump the version tag whenever compute()'s output shape changes, so
 		// cached entries from the old shape are never served.
-		$parts = ['v2'];
+		$parts = ['v3'];
 		$tables = [
 			'football_bets' => "CONCAT_WS('|', id, user_id, football_game_id, `option`, multiplier)",
 			'football_games' => "CONCAT_WS('|', id, football_week_id, IFNULL(type, ''), IFNULL(bet_type, ''), correct_option)",
@@ -568,7 +568,8 @@ class AllTimeStats
 				$pa = $player_seasons[$a];
 				$pb = $player_seasons[$b];
 				if ($pa['points'] != $pb['points']) return $pb['points'] - $pa['points'];
-				return $pb['right'] - $pa['right'];
+				if ($pa['right'] != $pb['right']) return $pb['right'] - $pa['right'];
+				return $pa['user_id'] - $pb['user_id'];
 			});
 			$rank = 0;
 			foreach ($keys as $key) {
@@ -641,7 +642,8 @@ class AllTimeStats
 		$chrono = function ($a, $b) {
 			if ($a['season_id'] != $b['season_id']) return $b['season_id'] - $a['season_id'];
 			if ($a['week_num'] != $b['week_num']) return $b['week_num'] - $a['week_num'];
-			return $b['rank'] - $a['rank'];
+			if ($a['rank'] != $b['rank']) return $b['rank'] - $a['rank'];
+			return $a['user_id'] - $b['user_id'];
 		};
 		usort($fame, $chrono);
 		usort($shame, $chrono);

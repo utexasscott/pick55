@@ -14,7 +14,8 @@ $players = array_filter($stats['players'], function ($p) {
 // Default order: net winnings
 uasort($players, function ($a, $b) {
 	if ($a['net'] != $b['net']) return $b['net'] < $a['net'] ? -1 : 1;
-	return $b['points'] - $a['points'];
+	if ($a['points'] != $b['points']) return $b['points'] - $a['points'];
+	return $a['user_id'] - $b['user_id'];
 });
 $qualified = array_filter($players, function ($p) {
 	return $p['weeks'] >= STATS_MIN_WEEKS;
