@@ -55,6 +55,9 @@ if (is_post()) {
 			if (!$ts) {
 				throw new Exception("Invalid date / time.");
 			}
+			if (!is_numeric(post('game_value'))) {
+				throw new Exception("Invalid value.");
+			}
 			$away_team = Team::find(post('away_team_id'));
 			if (!$away_team) {
 				throw new Exception("Invalid away team.");
@@ -70,7 +73,7 @@ if (is_post()) {
 				'away_team_id' => $away_team->id,
 				'home_team_id' => $home_team->id,
 				'bet_type' => post('pick_type'),
-				'value' => round(post('game_value'), 1),
+				'value' => round((float) post('game_value'), 1),
 				'date' => date("Y-m-d", $ts),
 				'time' => date("H:i:s", $ts),
 				'option_1' => post('option_1'),

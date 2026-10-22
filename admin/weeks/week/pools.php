@@ -63,6 +63,9 @@ if (!$any_players_unpooled) {
 if (is_post()) {
 	try {
 		if (post('action') == 'auto-distribute') {
+			if (!sizeof($pools)) {
+				throw new Exception("This week has no pools yet.");
+			}
 			PoolsUsersLink::where('week_id', '=', $week->id)->delete();
 
 			$players_per_pool = round(sizeof($players) / sizeof($pools));
@@ -312,7 +315,7 @@ ob_start();
 												<?php endforeach; ?>
 											</select>
 										</div>
-										<div class="col col-auto"><?=$num_friends_per_pool[$pool_id]?> / <?=$player->getNumFriends()?></div>
+										<div class="col col-auto"><?=$num_friends_per_pool[$pool_id] ?? 0?> /<?=$player->getNumFriends()?></div>
 									</div>
 								</div>
 							<?php endforeach; ?>
