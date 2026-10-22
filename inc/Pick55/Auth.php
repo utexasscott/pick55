@@ -73,7 +73,7 @@ class Auth
 	 */
 	public static function verifyPassword($password)
 	{
-		if (strlen($password) < 8) {
+		if (strlen((string) $password) < 8) {
 			throw new Exception("Passwords must be at least 8 characters in length.");
 		}
 	}
@@ -87,15 +87,15 @@ class Auth
 	 */
 	public static function attemptSignup($email, $password, $first_name, $last_name, $passcode)
 	{
-		if (strtoupper(trim($passcode)) !== 'FOOTBALL') {
+		if (strtoupper(trim((string) $passcode)) !== 'FOOTBALL') {
 			throw new Exception("Invalid passcode.");
 		}
 		self::verifyPassword($password);
 		$salt = self::token();
 		$encrypted_password = self::encryptPassword($password, $salt);
-		$email = strtolower(trim(post('email')));
-		$first_name = trim(post('first_name'));
-		$last_name = trim(post('last_name'));
+		$email = strtolower(trim((string) post('email')));
+		$first_name = trim((string) post('first_name'));
+		$last_name = trim((string) post('last_name'));
 		$user = User::where('email', '=', $email)
 			->first();
 		if ($user) return false;
@@ -134,7 +134,7 @@ class Auth
 	 */
 	public static function attemptReset($email)
 	{
-		$email = trim($email);
+		$email = trim((string) $email);
 		if (!strlen($email)) return;
 		$user = User::where('email', '=', $email)
 			->first();
@@ -154,7 +154,7 @@ class Auth
 	public static function sendResetPasswordEmail(User $user)
 	{
 		// Check if we should just refresh the token instead of regenerating it
-		if (strtotime($user->reset_token_at) > time() - 60 * 15) {
+		if ($user->reset_token_at && strtotime($user->reset_token_at) > time() - 60 * 15) {
 			// Use the existing token
 			$reset_token = $user->reset_token;
 		}
@@ -201,7 +201,8 @@ class Auth
 	 */
 	public static function checkCredentials($email, $password)
 	{
-		$email = trim($email);
+		$email = trim((string) $email);
+		$password = (string) $password;
 		if (!strlen($email)) return null;
 		if (!strlen($password)) return null;
 		$user = User::where('email', '=', $email)

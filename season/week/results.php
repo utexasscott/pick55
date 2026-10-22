@@ -205,9 +205,9 @@ $score_line = function (Game $game) use ($scores, $score_lines) {
 	$score = $scores[$game->id];
 	$label = $score->getStatusLabel();
 	$status_class = $score->isLive() ? 'status-live' : 'text-muted';
-	return '<span class="score">' . htmlspecialchars($score_lines[$game->id]['away']) . ' ' . (int) $score->away_score
-		. ', ' . htmlspecialchars($score_lines[$game->id]['home']) . ' ' . (int) $score->home_score . '</span>'
-		. ($label !== '' ? ' <span class="' . $status_class . '">' . htmlspecialchars($label) . '</span>' : '');
+	return '<span class="score">' . h($score_lines[$game->id]['away']) . ' ' . (int) $score->away_score
+		. ', ' . h($score_lines[$game->id]['home']) . ' ' . (int) $score->home_score . '</span>'
+		. ($label !== '' ? ' <span class="' . $status_class . '">' . h($label) . '</span>' : '');
 };
 
 // Money: what the format pays on the current standing, and the mean over

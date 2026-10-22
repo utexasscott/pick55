@@ -179,9 +179,9 @@ ob_start();
 						<select id="football_week_format_id" name="football_week_format_id" class="form-select">
 							<option value="">&mdash; no format &mdash;</option>
 							<?php foreach ($format_groups as $label => $formats): ?>
-								<optgroup label="<?=htmlspecialchars($label)?>">
+								<optgroup label="<?=h($label)?>">
 									<?php foreach ($formats as $f): ?>
-										<option <?=sel($f->id, $format_id)?> value="<?=$f->id?>"><?=htmlspecialchars($f->name)?> &mdash; <?=$f->num_players?> players, $<?=WeekFormatPayout::money($f->total_payout)?><?=$f->is_playoffs ? ' (playoffs)' : ''?></option>
+										<option <?=sel($f->id, $format_id)?> value="<?=$f->id?>"><?=h($f->name)?> &mdash; <?=$f->num_players?> players, $<?=WeekFormatPayout::money($f->total_payout)?><?=$f->is_playoffs ? ' (playoffs)' : ''?></option>
 									<?php endforeach; ?>
 								</optgroup>
 							<?php endforeach; ?>

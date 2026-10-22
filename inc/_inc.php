@@ -48,9 +48,6 @@ setlocale(LC_CTYPE, 'en_US.utf8');
 // Only store session ID in cookies client-side
 ini_set('session.use_only_cookies', '1');
 
-// Specify the hash function to generate session IDs ('0' => MD5, '1' => SHA-1)
-ini_set('session.hash_function', '1');
-
 // Session key
 define('SKEY', 'pick55');
 

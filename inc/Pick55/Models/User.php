@@ -48,8 +48,9 @@ class User extends BaseModel
 	 */
 	public function getDisplayName()
 	{
-		$last = trim(substr($this->last_name, 0, 2));
-		if (strlen($this->last_name) > 2) {
+		$last_name = (string) $this->last_name;
+		$last = trim(substr($last_name, 0, 2));
+		if (strlen($last_name) > 2) {
 			$last .= '.';
 		}
 		$str = trim(implode(' ', [
