@@ -76,7 +76,7 @@ Nothing on the site posts multipart. Since 2026-10-22 the `r/` async forms send 
 
 **Fix:** a new droplet on Ubuntu 24.04 with its own PHP 8.3 packages, which get security fixes through apt (owner, 2026-10-22). The first step is a local check that the app runs on PHP 8.3. Patching this box would mean building PHP 7.4 from source with the backport, on an OS that has been end-of-life since 2023.
 
-**State:** the stopgap script was written 2026-10-22 and has not been run yet.
+**State:** the stopgap was run by the owner on 2026-10-22 at `503be49`. The first attempt, at `7abe638`, failed Apache's configtest on `/multipart\/form-data/i` and rolled itself back; Apache 2.4.29 cannot compile an escaped slash in `/.../`, so the script now uses `m#...#`. The script's own checks found upload progress `'0'` for Apache and a 403 for multipart posts to `pick55.com/`, `pick55.com/r/`, `pick55.com/phpmyadmin/` and `pick9.golf/`, while a URL-encoded post got 200. From outside the box the same day, a multipart post got 403 and a GET of `/` got 200.
 
 ## What must never be in a deploy
 
