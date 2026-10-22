@@ -839,7 +839,8 @@
 		}
 		setBusy(form, submitter, true);
 		progress.start();
-		fetchFragment(url.href, { method: 'POST', body: body }).then(function (data) {
+		// URL-encoded, never multipart: production refuses multipart/form-data (docs/deploy.md, PHP2Shell)
+		fetchFragment(url.href, { method: 'POST', body: new URLSearchParams(body) }).then(function (data) {
 			if (data.__status === 401) {
 				toLogin();
 				return;

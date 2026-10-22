@@ -55,6 +55,29 @@ ssh root@143.198.236.171 "bash /home/beanstalk/pick55/scripts/deploy.sh"
 
 The droplet's CLI `php` is 8.0 while Apache serves through 7.4, so `composer install` resolves under 8.0 and the site runs under 7.4. The lock file already satisfies both (it was regenerated on the droplet in SVN r147–149).
 
+## PHP2Shell (CVE-2026-109618 / CVE-2026-109619)
+
+Two unauthenticated remote-code-execution bugs in the PHP engine, disclosed and patched 2026-10-21: fixed releases are 8.2.35, 8.3.36, 8.4.27 and 8.5.12; 7.4 to 8.1 got source backports only. Every known trigger is a `multipart/form-data` request. Apache with mod_php is the worst case, because the bug fires before any application code runs.
+
+Measured 2026-10-22 from `claude`:
+
+- Apache's PHP is **7.4.23, built 2021-08-26**, under mod_php (prefork). Its changelog names neither CVE. It came from the ondrej `bionic` channel, which gets no new builds, so apt cannot patch it. Ubuntu Pro ESM for 18.04 patches only the distro's own PHP 7.2, which nothing here runs.
+- `session.upload_progress.enabled` was unset (so on) and `memory_limit` was 128M.
+- No sign of compromise visible to `claude`. The web root matched `374475e`, with no untracked PHP besides `inc/_config.php`. `www-data` had written nothing outside `cache/` since 2026-10-15, and no `www-data` process other than Apache was running. `claude` cannot read the Apache logs.
+
+Nothing on the site posts multipart. Since 2026-10-22 the `r/` async forms send URL-encoded bodies; before that they sent `FormData`, which is multipart. No page has a file upload, and none can have one while the stopgap is in place.
+
+**Stopgap:** [`php2shell-stopgap.sh`](../scripts/php2shell-stopgap.sh), run as root, does two things:
+
+- It refuses every multipart request with a 403 on every vhost and alias, including `pick9.golf` and phpMyAdmin. A repo `.htaccess` would miss both.
+- It turns upload progress off for the Apache SAPI.
+
+`--undo` removes both. The third published mitigation, `memory_limit = -1`, is left out. On 985 MB, with prefork workers and MySQL on the same box, it trades the RCE for one request that can exhaust memory.
+
+**Fix:** not chosen yet (owner). This box can only be patched by building PHP 7.4 from source with the backport, on an OS that has been end-of-life since 2023. The alternative is a new droplet on a supported Ubuntu with a fixed PHP 8.x, after checking the app on that version.
+
+**State:** the stopgap script was written 2026-10-22 and has not been run yet.
+
 ## What must never be in a deploy
 
 - `inc/_config.php` (credentials) — git-ignored, lives only on the box.
