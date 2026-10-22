@@ -2,6 +2,7 @@ RewriteEngine On
 RewriteBase /
 RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
 RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
+RedirectMatch 404 /\.git(/|$)
 RedirectMatch 403 ^.*/inc/.*$
 RedirectMatch 403 ^.*/vendor/.*$
 RedirectMatch 403 ^.*/scrape/.*$
