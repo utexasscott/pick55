@@ -32,7 +32,7 @@ class XHelper
 	 * @param DOMNode $context
 	 * @return array of DOMNode
 	 */
-	public static function getNodes(DOMXPath $xpath, $exp, DOMNode $context = null)
+	public static function getNodes(DOMXPath $xpath, $exp, ?DOMNode $context = null)
 	{
 		$node_list = $xpath->query($exp, $context);
 		if (!$node_list->length) {
@@ -55,7 +55,7 @@ class XHelper
 	 * @param DOMNode $context
 	 * @return DOMNode or null
 	 */
-	public static function getNode(DOMXPath $xpath, $exp, DOMNode $context = null)
+	public static function getNode(DOMXPath $xpath, $exp, ?DOMNode $context = null)
 	{
 		$nodes = self::getNodes($xpath, $exp, $context);
 		if (!sizeof($nodes)) {
@@ -74,7 +74,7 @@ class XHelper
 	 * @param DOMNode $context
 	 * @return string or null
 	 */
-	public static function getNodeValue(DOMXPath $xpath, $exp, DOMNode $context = null)
+	public static function getNodeValue(DOMXPath $xpath, $exp, ?DOMNode $context = null)
 	{
 		$node = self::getNode($xpath, $exp, $context);
 		if (!$node) {

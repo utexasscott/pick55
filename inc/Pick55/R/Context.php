@@ -636,7 +636,7 @@ class Context
 	 * @param Week|null $week
 	 * @return array|null  JSON-safe summary of a week
 	 */
-	public function weekArray(Week $week = null)
+	public function weekArray(?Week $week = null)
 	{
 		if (!$week) {
 			return null;

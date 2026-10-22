@@ -10,6 +10,9 @@ $__config = [
 	// Optional. CLI PHP the "Scrape now" button runs when the web server's PHP has no dom
 	// extension (the droplet's Apache 7.4). Defaults to /usr/bin/php. See docs/odds-scraper.md.
 	// 'scrape' => ['php_cli' => '/usr/bin/php'],
+	// Optional. error_reporting level; defaults to E_ALL. Production on PHP 8.4+ uses
+	// E_ALL & ~E_DEPRECATED (see docs/droplet-migration.md).
+	// 'error_reporting' => E_ALL & ~E_DEPRECATED,
 	'db' => [
 		'host'     => '127.0.0.1',
 		'username' => 'root',

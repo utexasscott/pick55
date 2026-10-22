@@ -47,7 +47,7 @@ class WeekPayouts
 	 * @param array $pool_nums  the pool numbers in play
 	 * @return array ['overall' => table, 'pools' => [pool_num => table], 'any' => bool]
 	 */
-	public static function tables(WeekFormat $format = null, $num_players = 0, array $pool_nums = [])
+	public static function tables(?WeekFormat $format = null, $num_players = 0, array $pool_nums = [])
 	{
 		$overall_rows = [];
 		$every_pool_rows = [];

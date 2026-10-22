@@ -99,7 +99,7 @@ if (sizeof($pools)) {
 		// Set selected pool to my pool
 		$selected_pool_id = $my_pool_id;
 	}
-	if (!array_key_exists($selected_pool_id, $pools)) {
+	if ($selected_pool_id === null || !array_key_exists($selected_pool_id, $pools)) {
 		$selected_pool_id = null;
 	}
 	// If a pool is selected, focus only the users in the pool

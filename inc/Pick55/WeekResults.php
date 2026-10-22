@@ -446,7 +446,7 @@ class WeekResults
 	 * @param array|null $tables  WeekPayouts::tables(), or null for no payouts
 	 * @param array $pool_of  'u<id>' => pool_num
 	 */
-	private static function enumeratePredictions(array &$stats_by_user_id, array $bets_by_game_id, array $unknown_game_ids, $num_winners, $threshold, array $tables = null, array $pool_of = [])
+	private static function enumeratePredictions(array &$stats_by_user_id, array $bets_by_game_id, array $unknown_game_ids, $num_winners, $threshold, ?array $tables = null, array $pool_of = [])
 	{
 		$u_keys = array_keys($stats_by_user_id);
 		$num_users = sizeof($u_keys);

@@ -36,8 +36,9 @@ function config($key, $default = null) {
 // Settings
 // --------
 
-// Show all errors
-error_reporting(E_ALL);
+// Show all errors, unless the config narrows it (production on PHP 8.4+ leaves out
+// E_DEPRECATED: illuminate 8's implicitly nullable parameters log on every compile)
+error_reporting(config('error_reporting', E_ALL));
 
 // Set the timezone
 date_default_timezone_set('America/Chicago');

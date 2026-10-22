@@ -61,7 +61,7 @@ function traffic_link(array $changes)
  */
 function traffic_version_badge($version)
 {
-	if (!isset(TRAFFIC_VERSIONS[$version])) {
+	if (!isset(TRAFFIC_VERSIONS[(string) $version])) {
 		return '<span class="text-muted">&mdash;</span>';
 	}
 	return '<span class="traffic-key traffic-key-' . h($version) . '"></span>' . h(TRAFFIC_VERSIONS[$version]);
@@ -79,7 +79,7 @@ $since = null;
 if ($range !== 'all') {
 	$since = date('Y-m-d 00:00:00', strtotime('-' . ((int) $range - 1) . ' days'));
 }
-$version = isset(TRAFFIC_VERSIONS[get('version')]) ? get('version') : null;
+$version = isset(TRAFFIC_VERSIONS[(string) get('version')]) ? get('version') : null;
 $user_id = ctype_digit((string) get('user_id')) ? (int) get('user_id') : null;
 $path = trim((string) get('path', ''));
 $show_all = get('show') === 'all';
@@ -271,7 +271,7 @@ $choice_label = function ($id) use ($choices) {
 	if ($choice['preference']) {
 		return traffic_version_badge($choice['preference']);
 	}
-	$uses = isset(TRAFFIC_VERSIONS[$choice['uses']]) ? ' (on ' . h(TRAFFIC_VERSIONS[$choice['uses']]) . ')' : '';
+	$uses = isset(TRAFFIC_VERSIONS[(string) $choice['uses']]) ? ' (on ' . h(TRAFFIC_VERSIONS[$choice['uses']]) . ')' : '';
 	return '<span class="text-muted">No choice' . $uses . '</span>';
 };
 

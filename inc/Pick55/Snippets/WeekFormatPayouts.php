@@ -17,7 +17,7 @@ class WeekFormatPayouts extends Snippet
 	 * @param bool $inline
 	 * @return string
 	 */
-	public static function b(WeekFormat $format = null, $inline = false)
+	public static function b(?WeekFormat $format = null, $inline = false)
 	{
 		return self::build(['format' => $format, 'inline' => $inline]);
 	}
