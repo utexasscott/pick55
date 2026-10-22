@@ -315,7 +315,7 @@ ob_start();
 												<?php endforeach; ?>
 											</select>
 										</div>
-										<div class="col col-auto"><?=$num_friends_per_pool[$pool_id] ?? 0?> /<?=$player->getNumFriends()?></div>
+										<div class="col col-auto"><?=$num_friends_per_pool[$pool_id] ?? 0?> / <?=$player->getNumFriends()?></div>
 									</div>
 								</div>
 							<?php endforeach; ?>
