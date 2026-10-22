@@ -7,7 +7,7 @@
 | Decision | Choice | By |
 |---|---|---|
 | Size | DigitalOcean Basic, 2 GB / 1 vCPU, same region as today (sfo3) | owner, 2026-10-22 |
-| OS and stack | Pending the local test below. Preferred: Ubuntu 26.04 LTS, with its own PHP 8.5 and MySQL 8.4 LTS, supported to 2031. Fallback: Ubuntu 24.04 with PHP 8.3 and MySQL 8.4 from Oracle's apt repository, since 24.04's own MySQL 8.0 went end-of-life upstream in April 2026. | Claude, pending |
+| OS and stack | **Recommended: Ubuntu 26.04 LTS** with its own PHP 8.5 and MySQL 8.4 LTS, supported to 2031; the local test below passed. The fallback is Ubuntu 24.04 with PHP 8.3 and MySQL 8.4 from Oracle's apt repository, since 24.04's own MySQL 8.0 went end-of-life upstream in April 2026. | Claude; awaiting the owner |
 | Web server | Apache 2.4 with PHP-FPM (`mpm_event`). The root `.htaccess` keeps working (`AllowOverride All`). | Claude |
 | pick9.golf | Moves too, as a second site | owner, 2026-10-22 |
 | phpMyAdmin | Not installed. Database work goes over SSH. | owner, 2026-10-22 |
@@ -26,6 +26,32 @@
 | pick9 takeover hole | pick9 had Pick55's `LIKE` email and token lookups (see `cfacc9d`). The owner patched it in place on 2026-10-22 with a one-off root script, using the same change: four email lookups in `inc/Pick9/Auth.php` and the token guard in `auth/reset.php`. The originals are in `/root/pick9-backup-2026-10-22`. Verified from `claude`: no `LIKE` left in either file. pick9's files use CRLF line endings. |
 | Web root | Both sites are symlinks: `/var/www/pick55.com` → `/home/beanstalk/pick55` (git clone) and `/var/www/pick9.golf` → `/home/beanstalk/pick9`. |
 | Disk | Pick55's tree is 176 MB; the SVN export parked at `pick55.svn-149` is 190 MB and is not moved. |
+
+## Local stack test (2026-10-22)
+
+A subagent loaded a mysqldump of the local `pick` database (5.7) into a private MySQL 8.4.7 left at its defaults. On top of that it ran the app on PHP 8.5.0 and on 8.3.28 and compared both against PHP 7.4 on MySQL 5.7:
+
+- **Requests:** 261 GETs as a guest, a player and an admin, 252 fuzzed URLs, 19 POST cases, and the scrape CLIs.
+- **Import:** no errors. The warnings were deprecations (integer display width, `utf8` meaning `utf8mb3`) and one legacy `football_bets` row (id 4441) whose ENUM already holds `''` on 5.7. A row-by-row dump of 5.7 and 8.4 (99,186 rows) matched exactly.
+- **Login:** `caching_sha2_password` users connect from PHP 7.4, 8.3 and 8.5 through both PDO and mysqli.
+- **Results:** statuses, POST bodies, database end states, JSON endpoints and CLI output all matched 7.4 + 5.7. There were no fatals, exceptions or warnings, apart from the existing `App::selectSeason()` bug.
+- **Display differences,** fixed in `fbd0103`:
+  - MySQL 8 no longer sorts GROUP BY output, which changed the order of two all-time-stats queries.
+  - PHP 8.4's `round()` gave 51.2 where 7.4 gave 51.3.
+  - Week formats tied on playoffs, size and name came back in a different order.
+- **App deprecations on 8.5,** fixed in `5784420`: implicitly nullable parameters, and null array keys on the traffic and results pages.
+- **Library deprecations on 8.5:** illuminate 8 raises about 90 implicitly-nullable notices when its classes compile, and SendGrid and portable-ascii raise one each. No illuminate 8 release fixes them. Production on 8.4+ sets `'error_reporting' => E_ALL & ~E_DEPRECATED` in `inc/_config.php`, which `inc/_inc.php` reads since `5784420`. An illuminate upgrade becomes possible once nothing runs 7.4 any more; PHP 9 will need it.
+
+### Production settings for the new box
+
+- **php.ini, both the FPM and CLI SAPIs:**
+  - `display_errors=Off`, `display_startup_errors=Off`, `log_errors=On`, a dedicated `error_log`, `html_errors=Off`, `expose_php=Off`, `zend.assertions=-1`
+  - `opcache.enable=1`, with `opcache.validate_timestamps=1` so a `git pull` deploy is picked up
+- **Moving the database:** stop Apache and cron first, because 17 of 19 tables are MyISAM and `--single-transaction` doesn't make them consistent.
+  1. Dump with 5.7's own `mysqldump --default-character-set=utf8mb4 --lock-all-tables --routines --triggers --events --hex-blob --skip-dump-date --databases pick`.
+  2. Import with the 8.4 client: `mysql --default-character-set=utf8mb4 --show-warnings`.
+  3. Recreate the app user and Claude's read-only user with `caching_sha2_password`. Don't copy the `mysql` schema.
+  4. Verify with a row-level diff of `--no-create-info --skip-extended-insert --order-by-primary` dumps from both servers.
 
 ## Phases
 
@@ -50,4 +76,4 @@
 
 ## State
 
-- 2026-10-22: Decisions above. The local stack test is running. pick9's takeover hole is patched on the old box.
+- 2026-10-22: Decisions above. pick9's takeover hole is patched on the old box. The local stack test passed, and its fixes are committed (`fbd0103`, `5784420`). Next: the owner confirms the OS and creates the droplet, and Claude writes the setup script.
