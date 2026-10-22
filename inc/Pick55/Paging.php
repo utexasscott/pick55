@@ -25,6 +25,13 @@ class Paging
 	 */
 	public $total;
 
+	/**
+	 * The current page, 1-based.
+	 *
+	 * @var int
+	 */
+	public $page = 1;
+
 	public function __construct(array $options = [])
 	{
 		$options = array_merge([
@@ -96,8 +103,8 @@ class Paging
 	{
 		$page = get($this->key, null);
 		$this->page = 1;
-		if ($page !== null && $page > 0) {
-			$this->page = $page;
+		if (is_string($page) && ctype_digit($page) && (int) $page > 0) {
+			$this->page = (int) $page;
 		}
 	}
 
