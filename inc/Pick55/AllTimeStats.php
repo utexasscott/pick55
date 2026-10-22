@@ -61,7 +61,7 @@ class AllTimeStats
 	{
 		// Bump the version tag whenever compute()'s output shape changes, so
 		// cached entries from the old shape are never served.
-		$parts = ['v3'];
+		$parts = ['v4'];
 		$tables = [
 			'football_bets' => "CONCAT_WS('|', id, user_id, football_game_id, `option`, multiplier)",
 			'football_games' => "CONCAT_WS('|', id, football_week_id, IFNULL(type, ''), IFNULL(bet_type, ''), correct_option)",
@@ -181,7 +181,9 @@ class AllTimeStats
 		$winnings = [];
 		$q = DB::table('football_week_winners')
 			->select(['week_id', 'er_user_id', DB::raw('SUM(amount) AS amount')])
-			->groupBy('week_id', 'er_user_id');
+			->groupBy('week_id', 'er_user_id')
+			->orderBy('week_id')
+			->orderBy('er_user_id');
 		$paid_out = 0;
 		foreach ($q->cursor() as $row) {
 			$amount = (float) $row->amount;
@@ -242,7 +244,9 @@ class AllTimeStats
 		$q = DB::table('football_bets AS b')
 			->join('football_games AS g', 'g.id', '=', 'b.football_game_id')
 			->selectRaw(implode(', ', $cols))
-			->groupBy('g.football_week_id', 'b.user_id');
+			->groupBy('g.football_week_id', 'b.user_id')
+			->orderBy('g.football_week_id')
+			->orderBy('b.user_id');
 
 		$rows = [];
 		$by_week = [];
@@ -681,6 +685,6 @@ class AllTimeStats
 		if (!$den) {
 			return 0;
 		}
-		return round($num / $den * 100, 1);
+		return round($num * 100 / $den, 1);
 	}
 }

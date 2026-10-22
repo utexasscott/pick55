@@ -222,7 +222,7 @@ class Fmt
 	 * @param User|null $user
 	 * @return string  User::getDisplayName(), never the email
 	 */
-	public static function name(User $user = null)
+	public static function name(?User $user = null)
 	{
 		return $user ? $user->getDisplayName() : 'Unknown player';
 	}
@@ -231,7 +231,7 @@ class Fmt
 	 * @param User|null $user
 	 * @return string "SN"
 	 */
-	public static function initials(User $user = null)
+	public static function initials(?User $user = null)
 	{
 		if (!$user) {
 			return '?';
@@ -263,7 +263,7 @@ class Fmt
 		if (!(float) $den) {
 			return "\u{2014}";
 		}
-		return number_format((float) $num / (float) $den * 100, $decimals) . '%';
+		return number_format((float) $num * 100 / (float) $den, $decimals) . '%';
 	}
 
 	/**

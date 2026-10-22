@@ -223,7 +223,8 @@ class WeekFormat extends BaseModel
 	{
 		$q = self::orderBy('is_playoffs', 'ASC')
 			->orderBy('num_players', 'DESC')
-			->orderBy('name', 'ASC');
+			->orderBy('name', 'ASC')
+			->orderBy('id', 'ASC');
 		$all = $q->get();
 		if (!$num_players) {
 			return $all;
