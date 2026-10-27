@@ -66,6 +66,38 @@ The databases hold names and emails, so they travel box to box and never through
    - installs pick9's libraries from Pick55's `composer.lock` (the two `composer.json` files are identical)
    - re-runs the setup script for the HTTPS vhosts
 
+### Staging run (2026-10-27)
+
+- **Pack and unpack:** the owner packed at 13:03 and copied the pack over (69 MB). `migrate-unpack.sh` imported `pick` and `golf`, and all 41 tables matched the old box's row counts. Import warnings were deprecations only (1681, 3719, 3778, 1831), plus the two known 1265s on `football_bets` id 4441.
+- **Config logins:** both configs had used MySQL `root`, so they now log in as `pick55` and `pick9`.
+- **HTTPS:** works with the copied certificate, which runs to 2026-11-26.
+- **Smoke test,** over HTTPS on the box: 267 requests. That's the 8.3 pass's URL list as a guest, as player 8 and as admin 1 (temporary remember tokens, deleted afterwards), plus pick9's public pages.
+  - Every page returned 2xx/3xx.
+  - The only other codes were the API's intended 401/403/404/405.
+  - Neither site added a single PHP log line, once pick9's hardcoded `error_reporting(E_ALL)` was narrowed. `migrate-unpack.sh` repeats that edit on every unpack, because pick9 is not in git.
+- **Cron:** each job ran once as `beanstalk` under PHP 8.5 with exit 0. `run.php --check` reported "Would run: week #224". `live-scores.php --check` skipped, with no open game. pick9's `get-raw.php` reported "No scrapeable tournament" (off-season).
+
+### Cutover (2026-10-27, owner's choice of day)
+
+Week 8 (id 225) had no games yet, so nobody could pick during the switch.
+
+1. Owner: push. The new box pulls the final scripts.
+2. Owner: `migrate-pack.sh --final` on the old box. Both old sites show a 503 "moving" page, cron stops, and the final pack is made.
+3. Owner: `scp -3` the pack to the new box.
+4. Claude, on the new box:
+   - `deploy.sh`, then `migrate-unpack.sh /root/stage.tar.gz --final`, which also installs `beanstalk`'s five cron lines.
+   - Smoke test again.
+5. Owner: point the four A records (`pick55.com`, `www.pick55.com`, `pick9.golf`, `www.pick9.golf`) at `137.184.150.9` with a TTL of 300. They had a 3600 TTL, so some visitors see the old box's 503 page for up to an hour.
+6. Claude:
+   - Verify through public DNS and HTTPS from outside.
+   - Run `certbot renew --dry-run`. Renewal is due from about Oct 27.
+   - Watch the PHP log and traffic.
+7. Owner:
+   - Remove Claude's setup sudo.
+   - Point the `pick55` SSH alias at the new IP.
+8. Claude: rewrite [deploy.md](deploy.md), [database-access.md](database-access.md) and CLAUDE.md for the new box.
+9. Later: the old droplet is powered off but kept for a week, then snapshotted and destroyed.
+
 ## Local stack test (2026-10-22)
 
 A subagent loaded a mysqldump of the local `pick` database (5.7) into a private MySQL 8.4.7 left at its defaults. On top of that it ran the app on PHP 8.5.0 and on 8.3.28 and compared both against PHP 7.4 on MySQL 5.7:
@@ -115,4 +147,4 @@ A subagent loaded a mysqldump of the local `pick` database (5.7) into a private 
 
 ## State
 
-- 2026-10-22: Decisions above. pick9's takeover hole is patched on the old box. The local stack test passed, and its fixes are committed (`fbd0103`, `5784420`). The owner chose Ubuntu 26.04 and temporary sudo for setup. The droplet was created in NYC1 and provisioned (above). The old box served `/.git/` publicly (its web root is a git clone); the repo `.htaccess` now returns 404 for it. Next: a staging pack, the copy, then unpacking and testing on the new box.
+- 2026-10-22: Decisions above. pick9's takeover hole is patched on the old box. The local stack test passed, and its fixes are committed (`fbd0103`, `5784420`). The owner chose Ubuntu 26.04 and temporary sudo for setup. The droplet was created in NYC1 and provisioned (above). The old box served `/.git/` publicly (its web root is a git clone); the repo `.htaccess` now returns 404 for it. 2026-10-27: the staging run passed (above). Cutover in progress.

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # On the NEW droplet, as root: put a pack from migrate-pack.sh in place.
 #
-#   sudo bash /home/beanstalk/pick55/scripts/migrate-unpack.sh /root/stage.tar.gz
+#   sudo bash /home/beanstalk/pick55/scripts/migrate-unpack.sh /root/stage.tar.gz [--final]
+#
+# --final (cutover, after migrate-pack.sh --final) also installs beanstalk's crontab, so
+# the new box starts scraping and scoring. Without it the staging box runs no cron.
 #
 # Safe to re-run with a newer pack (the final one at cutover): both databases are dropped
 # and re-imported, and files are replaced. Steps:
@@ -19,6 +22,10 @@
 set -euo pipefail
 
 TAR=${1:-/root/stage.tar.gz}
+FINAL=0
+if [ "${2:-}" = "--final" ]; then
+	FINAL=1
+fi
 OWNER=beanstalk
 H=/home/$OWNER
 ST=/root/migrate-2026-stage
@@ -37,6 +44,9 @@ echo "== files"
 rm -rf /etc/letsencrypt
 cp -a "$ST/etc/letsencrypt" /etc/letsencrypt
 rsync -a --delete --exclude vendor/ --exclude inc/_config.php "$ST/home/beanstalk/pick9/" "$H/pick9/"
+# pick9 is not in git and hardcodes error_reporting(E_ALL): on PHP 8.2+ it logs dynamic
+# property and illuminate 8 deprecations on every request and every 5-minute cron run.
+sed -i 's/^error_reporting(E_ALL);/error_reporting(E_ALL \& ~E_DEPRECATED);/' "$H/pick9/inc/_inc.php"
 chown -R $OWNER:$OWNER "$H/pick9"
 for d in "$H/pick9/scrape" "$H/pick9/scrape/raw"; do
 	[ -d "$d" ] && chown $OWNER:www-data "$d" && chmod 2775 "$d"
@@ -141,6 +151,19 @@ if cmp -s "$H/pick9/composer.json" "$H/pick55/composer.json"; then
 	sudo -u $OWNER -H composer install --no-dev --no-interaction --prefer-dist --no-progress -d "$H/pick9" 2>&1 | tail -1
 else
 	echo "pick9's composer.json differs from Pick55's; vendor/ not installed" >&2
+fi
+
+if [ $FINAL = 1 ]; then
+	echo "== beanstalk's crontab (the old box's five lines, as listed 2026-10-22)"
+	crontab -u $OWNER - <<'EOF'
+# pick55 and pick9 (pick55 scripts/migrate-unpack.sh --final). php is /usr/bin/php (8.5).
+15 20 * * 1 /usr/bin/php /home/beanstalk/pick55/scrape/run.php >> /home/beanstalk/logs/scrape/run.log 2>&1
+0 8 * * 2 /usr/bin/php /home/beanstalk/pick55/scrape/run.php >> /home/beanstalk/logs/scrape/run.log 2>&1
+*/10 * * * * /usr/bin/php /home/beanstalk/pick55/scrape/live-scores.php >> /home/beanstalk/logs/scrape/live-scores.log 2>&1
+*/5 * * * * cd ~/pick9/scrape && php get-raw.php >> ~/logs/pick9/get-raw.log 2>&1
+*/5 * * * * cd ~/pick9/scrape && php parse-raw.php >> ~/logs/pick9/parse-raw.log 2>&1
+EOF
+	crontab -u $OWNER -l | grep -c -v '^#' | sed 's/$/ cron lines installed/'
 fi
 
 echo "== Apache with HTTPS"

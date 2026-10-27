@@ -145,6 +145,18 @@ echo "== $OWNER and the web roots"
 id $OWNER >/dev/null 2>&1 || useradd -m -s /bin/bash $OWNER
 chmod 755 $HOME_DIR
 install -d -m 775 -o $OWNER -g $OWNER $HOME_DIR/logs $HOME_DIR/logs/scrape $HOME_DIR/logs/pick9
+# The cron jobs append to these forever (they were never rotated on the old box)
+cat > /etc/logrotate.d/beanstalk-logs <<EOF
+$HOME_DIR/logs/*/*.log {
+	su $OWNER $OWNER
+	weekly
+	rotate 8
+	compress
+	missingok
+	notifempty
+	copytruncate
+}
+EOF
 install -d -m 775 -o $OWNER -g $OWNER $HOME_DIR/pick9
 if [ ! -d $HOME_DIR/pick55/.git ]; then
 	sudo -u $OWNER -H git clone -q $REPO $HOME_DIR/pick55
