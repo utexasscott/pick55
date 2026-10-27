@@ -4,21 +4,19 @@
 
 ## Where production runs
 
-Measured 2026-09-24 over SSH as `claude`, except where marked.
+Since **2026-10-27**, the droplet built in [droplet-migration.md](droplet-migration.md), "The new box", by [`provision-new-droplet.sh`](../scripts/provision-new-droplet.sh). The old droplet (`143.198.236.171`, Ubuntu 18.04, PHP 7.4 under mod_php, MySQL 5.7) has been retired; its facts are in that doc, "The old box".
 
 | Fact | Value |
 |---|---|
-| Droplet | DigitalOcean, hostname `-s-1vcpu-1gb-sfo3-01`, public IPv4 `143.198.236.171`, private `10.124.0.2` (owner, 2026-09-07). 1 vCPU, 985 MB RAM, 25 GB disk (36% used). |
-| OS | Ubuntu 18.04.6 LTS. Clock is US Central (`CDT`). |
-| Web server | Apache 2, vhosts `pick55.com` (+ `www`, Let's Encrypt TLS) and `pick9.golf`. `AllowOverride All`, so `.htaccess` is honoured. |
-| Web root | `DocumentRoot /var/www/pick55.com`, a symlink to **`/home/beanstalk/pick55`**, owned by `beanstalk:beanstalk`, mode 775. |
-| PHP | **Apache runs PHP 7.4** (`mods-enabled/php7.4`). **The CLI `php` is 8.0.10.** Every version 5.6–8.0 is installed under `/etc/php`. CLI work (cron, scripts) uses 8.0: `php7.4-xml` is not installed, so no 7.4 SAPI (CLI or Apache) has `dom`, and the 7.4 CLI warns on `pdo_mysql` at startup (measured 2026-09-25); `/usr/bin/php` (8.0) has `dom`, `curl`, `mysqli`, `mysqlnd`, `pdo_mysql`. The 7.4 packages came from the ondrej PPA `bionic` channel, which apt no longer resolves, so 7.4 cannot gain extensions. Code must stay valid on both, and anything needing `dom` under the web server has to shell out to 8.0 (see [odds-scraper.md](odds-scraper.md)). |
-| MySQL | 5.7.42, local, database `pick`. |
-| Tooling | git 2.17.1, Composer 2.1.6 at `/usr/local/bin/composer`. |
-| Last SVN deploy | `.revision` = **149**, files dated 2026-09-18 19:33 (superseded by the git cutover, 2026-09-25). Beanstalk deploys were an export (no `.svn` directory), copied in as `beanstalk`. SVN received r147–r149 after this repo's r146 import. Diffed 2026-09-24 (production tree vs. the import commit): they added declared properties on `App` and `Page`, `#[AllowDynamicProperties]` on `BaseModel` (PHP 8.2 readiness; inert on 7.4), bumped `illuminate/*` 8.58 → 8.61 in `composer.lock`, and added `season/week/raw.php`, a JSON dump of the pick week's games for a logged-in player. All four are now in git, so **git `main` is a superset of production** and the cutover below can proceed. |
-| `inc/_config.php` on the box | 397 bytes, `beanstalk:www-data` mode 640 since the 2026-09-25 cutover (was 644 and world-readable under the SVN export). Apache reads it through the `www-data` group. |
-| Scrape cron | Owned by `beanstalk`'s crontab, which `claude` cannot read. The 2022 line ran daily at 02:00 and stopped by 2023; the replacement (Monday 20:15 + Tuesday 08:00, `scrape/run.php` under `/usr/bin/php`) is specified in [odds-scraper.md](odds-scraper.md), "The cron". |
-| What `claude` cannot do | `sudo`, read `/var/log/apache2`, read any crontab, write anywhere under `/home/beanstalk`. |
+| Droplet | DigitalOcean `pick55-2026`, **`137.184.150.9`**, NYC1. 1 vCPU, 2 GB RAM plus a 2 GB swapfile, 48 GB disk. |
+| OS | Ubuntu 26.04.1 LTS, US Central time, automatic security updates. |
+| Sites | `pick55.com` and `pick9.golf`, each with `www`, behind one Let's Encrypt certificate (renewed by `certbot.timer` with the apache plugin; a dry run passed from this box on 2026-10-27). HTTP redirects to HTTPS, and `AllowOverride All`, so `.htaccess` is honoured. |
+| Web root | `/var/www/pick55.com` → **`/home/beanstalk/pick55`**, a git clone owned by `beanstalk`. pick9's files, an SVN export not in git, are at `/home/beanstalk/pick9`. |
+| PHP | **8.5.4** for both Apache (PHP-FPM) and CLI (`/usr/bin/php`); it has `dom`, `curl`, `mysqli`, `pdo_mysql`. Production's `inc/_config.php` sets `'error_reporting' => E_ALL & ~E_DEPRECATED`, because illuminate 8 deprecations would otherwise fill the log. The FPM log is `/var/log/php/fpm-error.log`. Code must still run on the local PHP 7.4 (CLAUDE.md, "Running locally"). |
+| MySQL | 8.4.11, localhost only, databases `pick` and pick9's `golf`. The app logs in as `pick55`, pick9 as `pick9`, and MySQL's `root` through the server's root account (auth_socket, no password). |
+| `inc/_config.php` | `beanstalk:www-data` mode 640, for both sites. |
+| Cron | `beanstalk`'s crontab, installed by [`migrate-unpack.sh`](../scripts/migrate-unpack.sh) `--final`: Pick55's `run.php` at Mon 20:15 and Tue 08:00, and `live-scores.php` every 10 minutes; pick9's `get-raw.php` and `parse-raw.php` every 5 minutes. Logs go to `/home/beanstalk/logs/` and rotate weekly. |
+| What `claude` can do | SSH as `claude`; read the trees; use the MySQL account in [database-access.md](database-access.md). No sudo once the setup sudo is removed after the cutover. |
 
 ## The rule: commit freely, push on go
 
@@ -31,7 +29,7 @@ Measured 2026-09-24 over SSH as `claude`, except where marked.
 
 ```powershell
 git -C C:\wamp\www\pick55 push origin main
-ssh root@143.198.236.171 "bash /home/beanstalk/pick55/scripts/deploy.sh"
+ssh root@137.184.150.9 "bash /home/beanstalk/pick55/scripts/deploy.sh"
 ```
 
 ## Mechanism
@@ -46,16 +44,18 @@ The web root is a git clone of `origin/main` at `/home/beanstalk/pick55`, owned 
 Deploy command the owner runs after a push:
 
 ```powershell
-ssh root@143.198.236.171 "bash /home/beanstalk/pick55/scripts/deploy.sh"
+ssh root@137.184.150.9 "bash /home/beanstalk/pick55/scripts/deploy.sh"
 ```
 
 `claude` cannot run either script (no write access to the tree, no sudo). Automating the pull from a GitHub Actions workflow is possible later (a deploy key on the droplet plus an SSH key in the repo secrets) and is not built.
 
 **State:** cutover run by the owner 2026-09-25 15:12 CDT, verified from `claude` the same hour: `/home/beanstalk/pick55` is a clone at `4262ad7`, `inc/_config.php` is `beanstalk:www-data` mode 640 (no longer readable by `claude`), `cache/` is `www-data:beanstalk` 775, `scrape/raw/` carried over, `/` and `/rules.php` return 200. The SVN export is parked at `/home/beanstalk/pick55.svn-149` and can be deleted once a few deploys have gone through. `git` commands run as `claude` in that tree fail with *dubious ownership*; that is expected and harmless.
 
-The droplet's CLI `php` is 8.0 while Apache serves through 7.4, so `composer install` resolves under 8.0 and the site runs under 7.4. The lock file satisfies both. It was last regenerated 2026-10-22 under the local PHP 7.4, moving Carbon 2.53→2.73, illuminate 8.61→8.83.27, SendGrid 7.9→7.11.5 and Guzzle 7.3→7.16 for PHP 8.3 readiness and 21 security advisories. A `composer install --no-dev --dry-run` of it on the droplet (Composer 2.1.6, PHP 8.0.10) passed every platform check.
+(That state describes the old box. On the new box, `migrate-unpack.sh` set the same layout up.) The lock file installs on the local PHP 7.4 and on production's 8.5. It was last regenerated 2026-10-22 under the local PHP 7.4, moving Carbon 2.53→2.73, illuminate 8.61→8.83.27, SendGrid 7.9→7.11.5 and Guzzle 7.3→7.16 for PHP 8.3 readiness and 21 security advisories. A `composer install --no-dev --dry-run` of it on the droplet (Composer 2.1.6, PHP 8.0.10) passed every platform check.
 
 ## PHP2Shell (CVE-2026-109618 / CVE-2026-109619)
+
+**Resolved 2026-10-27:** production moved to the new droplet, whose PHP 8.5.4 carries the fixes. The stopgap and the unpatchable PHP 7.4 stayed behind with the old box. What follows is the record.
 
 Two unauthenticated remote-code-execution bugs in the PHP engine, disclosed and patched 2026-10-21: fixed releases are 8.2.35, 8.3.36, 8.4.27 and 8.5.12; 7.4 to 8.1 got source backports only. Every known trigger is a `multipart/form-data` request. Apache with mod_php is the worst case, because the bug fires before any application code runs.
 

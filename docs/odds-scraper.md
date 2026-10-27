@@ -121,6 +121,8 @@ Handling, since 2026-09-25:
 
 Owner decision 2026-09-07: Monday 20:15 Central (lines have settled) plus a Tuesday 08:00 retry. Droplet facts that bind it (measured 2026-09-24/25, [deploy.md](deploy.md)): the crontab belongs to `beanstalk` (Claude cannot read or edit it; the owner installs the line), the box clock is US Central so cron times are local, the line invokes **`/usr/bin/php` (8.0)** — not `php7.4`, whose CLI build lacks the `dom` extension the parser needs and warns on `pdo_mysql` at startup — and output goes to `/home/beanstalk/logs/scrape/`, which already exists. `scrape/raw/` on the droplet is owned by `beanstalk`, so the cron can write it.
 
+Since 2026-10-27 these lines run on the new droplet (`137.184.150.9`) under PHP 8.5. [`migrate-unpack.sh`](../scripts/migrate-unpack.sh) `--final` installed them with the rest of `beanstalk`'s crontab, and [deploy.md](deploy.md) lists the whole crontab. The commands below record the 2026-09-25 install on the old box.
+
 The two crontab lines:
 
 ```

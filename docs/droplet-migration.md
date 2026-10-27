@@ -147,4 +147,12 @@ A subagent loaded a mysqldump of the local `pick` database (5.7) into a private 
 
 ## State
 
-- 2026-10-22: Decisions above. pick9's takeover hole is patched on the old box. The local stack test passed, and its fixes are committed (`fbd0103`, `5784420`). The owner chose Ubuntu 26.04 and temporary sudo for setup. The droplet was created in NYC1 and provisioned (above). The old box served `/.git/` publicly (its web root is a git clone); the repo `.htaccess` now returns 404 for it. 2026-10-27: the staging run passed (above). Cutover in progress.
+- 2026-10-22: Decisions above. pick9's takeover hole is patched on the old box. The local stack test passed, and its fixes are committed (`fbd0103`, `5784420`). The owner chose Ubuntu 26.04 and temporary sudo for setup. The droplet was created in NYC1 and provisioned (above). The old box served `/.git/` publicly (its web root is a git clone); the repo `.htaccess` now returns 404 for it. 2026-10-27: the staging run passed (above), and the cutover followed:
+
+- **13:28:** the final pack was taken with the old sites in maintenance and cron stopped.
+- **Final unpack** (`--final`): 41 of 41 tables matched the old box's counts, and the five cron lines were installed. A guest-only smoke test over 40 requests got the expected codes and added no PHP log lines; there were no test logins this time, since this was now production data.
+- **DNS:** the owner moved the four A records to `137.184.150.9` with a TTL of 300. Checked from the new droplet, all three DigitalOcean nameservers and Google's and Cloudflare's DNS-over-HTTPS answered `137.184.150.9`. The owner's workstation network intercepts DNS and answered from a cache, so check from the droplet rather than from there.
+- **Checks from outside:** both sites served 200 over HTTPS, HTTP redirected to HTTPS, and `www` redirected to the bare domain. `certbot renew --dry-run` succeeded for all four names; `certbot.timer` is enabled.
+- **First minutes on the new box:** real visitors were served, the cron jobs ran (live scores at 13:40, pick9's scrapers at 13:35 and 13:40), and nothing new reached the PHP log.
+
+Still to do: the owner removes Claude's setup sudo and points the `pick55` SSH alias at the new IP. The old droplet stays in maintenance with cron stopped until it's powered off, kept for a week, then snapshotted and destroyed. Week 8's games are created on the new box.

@@ -41,9 +41,15 @@ C:\wamp64\bin\mysql\mysql5.7.44\bin\mysqldump.exe -h 127.0.0.1 -u root --no-data
 
 with `AUTO_INCREMENT=N` stripped. Re-run after every schema change.
 
-## Production (the droplet `143.198.236.171`)
+## Production (the droplet `137.184.150.9`, since 2026-10-27)
 
-Design: a dedicated Unix account `claude` on the droplet (key-only SSH), and a MySQL account `claude` granted per table on everything except `er_users`. The MySQL password is generated **on the droplet** and stored only in `/home/claude/.my.cnf` (mode 600), so it never passes through chat and Claude never holds it locally. Claude runs queries as `ssh pick55 mysql pick -e "..."`; for anything needing a local client (Eloquent scripts), an SSH tunnel `-L 3307:127.0.0.1:3306` works with the same account.
+Design: a dedicated Unix account `claude` on the droplet (key-only SSH), and a MySQL account `claude` granted per table on everything except `er_users`. The MySQL password is generated **on the droplet** and stored only in `/home/claude/.my.cnf` (mode 600), so it never passes through chat and Claude never holds it locally. Claude runs queries as `ssh pick55 mysql pick -e "..."`; for anything needing a local client (Eloquent scripts), an SSH tunnel `-L 3307:127.0.0.1:3306` works with the same account. When a query is easier to send than to quote, pipe it in: `Get-Content <file>.sql | ssh pick55 "mysql pick -t"`.
+
+**On the new box** (MySQL 8.4), [`migrate-unpack.sh`](../scripts/migrate-unpack.sh) recreated that account on 2026-10-27: `claude@localhost` and `claude@127.0.0.1`, with SELECT/INSERT/UPDATE/DELETE on every `pick` table except `er_users`. The script checks that `er_users` is denied. The `pick55` SSH alias in the owner's `~/.ssh/config` must point at `137.184.150.9`.
+
+**Schema changes on the new box:** MySQL's root logs in through the server's root account (auth_socket), so no password and no `ssh -t` are needed. After the `LIVE_WRITE_GATE` go, the owner runs `scp <file> root@137.184.150.9:/root/`, then `ssh root@137.184.150.9 "mysql pick < /root/<file>"` (with the real file name). Re-snapshot `db/schema.sql` afterwards as before.
+
+The rest of this section records the old box (`143.198.236.171`, MySQL 5.7, retired 2026-10-27).
 
 **State: provisioned and verified 2026-09-24.** `ssh pick55` lands as `claude`; `mysql pick -e 'SHOW TABLES'` lists 16 tables (all but `er_users`); `SELECT COUNT(*) FROM er_users` fails with `ERROR 1142`. The provisioning is one script, [`scripts/provision-claude-droplet.sh`](../scripts/provision-claude-droplet.sh), idempotent, run once as root. Owner-side steps (PowerShell, absolute paths):
 

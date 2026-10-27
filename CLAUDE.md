@@ -84,7 +84,7 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - PHP 7.4.33 CLI at `C:\php\php7.4.33\php.exe` (on PATH); Composer is `C:\php\php7.4.33\composer.bat` (run via `cmd //c` from bash). `vendor/` is installed. Its `php.ini` points `curl.cainfo`/`openssl.cafile` at `C:\php\php7.4.33\extras\ssl\cacert.pem` (added 2026-09-25) so CLI HTTPS works.
 - Apache (wamp64) serves `c:\wamp\www`, so the app is at `http://127.0.0.1/pick55/`, working against the local database. Its PHP 7.4.33 reads `C:\wamp64\bin\apache\apache2.4.65\bin\php.ini`, which also points `curl.cainfo`/`openssl.cafile` at the bundle above (set 2026-09-25; takes effect after a WampServer restart, which Claude cannot do).
 - MySQL 5.7.44 (WampServer) on 3306, `root` with empty password, database `pick` (full production dump from 2026-09-07). Client binaries under `C:\wamp64\bin\mysql\mysql5.7.44\bin\`. Schema snapshot in `db/schema.sql`; details in [docs/database-access.md](docs/database-access.md).
-- Production: DigitalOcean droplet `143.198.236.171` (`pick55.com`); see [docs/deploy.md](docs/deploy.md).
+- Production: DigitalOcean droplet `137.184.150.9` (`pick55.com` and `pick9.golf`; Ubuntu 26.04, PHP 8.5, MySQL 8.4) since 2026-10-27; see [docs/deploy.md](docs/deploy.md). The old droplet `143.198.236.171` was retired that day ([docs/droplet-migration.md](docs/droplet-migration.md)). Code must still run on the local PHP 7.4 above.
 - Syntax check: `php -l path/to/file.php`. There is no test suite.
 
 ## Gotchas
@@ -102,4 +102,3 @@ NFL/NCAA football confidence-pick pool. Plain PHP 7.x web app (no framework) usi
 - The project was migrated from SVN (Beanstalk, r146) to git on 2026-09-04; the old `trunk/` prefix is gone, so local URLs are `/pick55/` not `/pick55/trunk/`.
 - A visitor who chose a site (cookie `site_version`) is redirected off the other site's pages on every GET, before the page's own code runs; when testing a classic page with curl or a browser that once followed a switch link, a 302 to `r/` is that, not a bug. `redir('')` redirects to the current URL, not to the home page. See [docs/site-version.md](docs/site-version.md).
 - Weeks are created by hand in the database (no create-week page); the admin week page then assigns the format and the pools page creates the pool rows.
-- Never post `multipart/form-data` and add no file uploads. Production's PHP2Shell stopgap refuses multipart requests with a 403 until its PHP is patched (2026-10-22). Send forms URL-encoded. See [docs/deploy.md](docs/deploy.md), "PHP2Shell".

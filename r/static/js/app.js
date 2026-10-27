@@ -839,7 +839,7 @@
 		}
 		setBusy(form, submitter, true);
 		progress.start();
-		// URL-encoded, never multipart: production refuses multipart/form-data (docs/deploy.md, PHP2Shell)
+		// URL-encoded: no form here uploads a file, and multipart was the PHP2Shell trigger (docs/deploy.md)
 		fetchFragment(url.href, { method: 'POST', body: new URLSearchParams(body) }).then(function (data) {
 			if (data.__status === 401) {
 				toLogin();

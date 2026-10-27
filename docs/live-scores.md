@@ -140,7 +140,9 @@ Whether the app's own MySQL account in the droplet's `inc/_config.php` is grante
 
 ## The cron
 
-Every 10 minutes, `beanstalk`'s crontab, `/usr/bin/php` (8.0; the same binary and log directory as the odds scraper, see [odds-scraper.md](odds-scraper.md) "The cron"):
+Since 2026-10-27 this runs on the new droplet (`137.184.150.9`) under PHP 8.5, installed by [`migrate-unpack.sh`](../scripts/migrate-unpack.sh) `--final` (see [deploy.md](deploy.md)). The commands below record the install on the old box.
+
+Every 10 minutes, `beanstalk`'s crontab, `/usr/bin/php` (8.0 on the old box; the same binary and log directory as the odds scraper, see [odds-scraper.md](odds-scraper.md) "The cron"):
 
 ```
 */10 * * * * /usr/bin/php /home/beanstalk/pick55/scrape/live-scores.php >> /home/beanstalk/logs/scrape/live-scores.log 2>&1
