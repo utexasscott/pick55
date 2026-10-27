@@ -8,7 +8,7 @@ Since **2026-10-27**, the droplet built in [droplet-migration.md](droplet-migrat
 
 | Fact | Value |
 |---|---|
-| Droplet | DigitalOcean `pick55-2026`, **`137.184.150.9`**, NYC1. 1 vCPU, 2 GB RAM plus a 2 GB swapfile, 48 GB disk. |
+| Droplet | DigitalOcean, **`137.184.150.9`**, hostname `ubuntu-s-1vcpu-2gb-nyc1` (DigitalOcean's default), NYC1. 1 vCPU, 2 GB RAM plus a 2 GB swapfile, 48 GB disk. |
 | OS | Ubuntu 26.04.1 LTS, US Central time, automatic security updates. |
 | Sites | `pick55.com` and `pick9.golf`, each with `www`, behind one Let's Encrypt certificate (renewed by `certbot.timer` with the apache plugin; a dry run passed from this box on 2026-10-27). HTTP redirects to HTTPS, and `AllowOverride All`, so `.htaccess` is honoured. |
 | Web root | `/var/www/pick55.com` → **`/home/beanstalk/pick55`**, a git clone owned by `beanstalk`. pick9's files, an SVN export not in git, are at `/home/beanstalk/pick9`. |
@@ -16,7 +16,7 @@ Since **2026-10-27**, the droplet built in [droplet-migration.md](droplet-migrat
 | MySQL | 8.4.11, localhost only, databases `pick` and pick9's `golf`. The app logs in as `pick55`, pick9 as `pick9`, and MySQL's `root` through the server's root account (auth_socket, no password). |
 | `inc/_config.php` | `beanstalk:www-data` mode 640, for both sites. |
 | Cron | `beanstalk`'s crontab, installed by [`migrate-unpack.sh`](../scripts/migrate-unpack.sh) `--final`: Pick55's `run.php` at Mon 20:15 and Tue 08:00, and `live-scores.php` every 10 minutes; pick9's `get-raw.php` and `parse-raw.php` every 5 minutes. Logs go to `/home/beanstalk/logs/` and rotate weekly. |
-| What `claude` can do | SSH as `claude`; read the trees; use the MySQL account in [database-access.md](database-access.md). No sudo once the setup sudo is removed after the cutover. |
+| What `claude` can do | SSH as `claude` (the owner's `pick55` alias); read the trees; read the logs, as a member of `adm` (Apache's under `/var/log/apache2/`; the PHP log is world-readable); use the MySQL account in [database-access.md](database-access.md). No sudo (the setup sudo was removed 2026-10-27). Git commands on the tree need `git -c safe.directory=/home/beanstalk/pick55`, since `beanstalk` owns it. |
 
 ## The rule: commit freely, push on go
 

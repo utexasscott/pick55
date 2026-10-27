@@ -34,7 +34,7 @@
 
 | Fact | Value |
 |---|---|
-| Droplet | `pick55-2026`, `137.184.150.9`, NYC1. 1 vCPU, 2 GB RAM plus a 2 GB swapfile, 48 GB disk. |
+| Droplet | `137.184.150.9`, hostname `ubuntu-s-1vcpu-2gb-nyc1` (DigitalOcean's default), NYC1. 1 vCPU, 2 GB RAM plus a 2 GB swapfile, 48 GB disk. |
 | OS | Ubuntu 26.04.1 LTS, US Central time, with automatic security updates (`20auto-upgrades`). Root logs in by SSH key only. |
 | PHP | 8.5.4 through PHP-FPM (`pm.max_children = 10`). Its changelog lists the PHP2Shell CVEs. `99-pick55.ini` for FPM and CLI sets display off, logging on and `expose_php` off; FPM logs to `/var/log/php/fpm-error.log`, rotated weekly. |
 | MySQL | 8.4.11, localhost only, X Protocol off, `performance_schema` off, 256 MB InnoDB buffer, 32 MB key buffer (`99-pick55.cnf`). MySQL's root logs in through the server's root account (auth_socket); each app has its own MySQL user. |
@@ -155,4 +155,6 @@ A subagent loaded a mysqldump of the local `pick` database (5.7) into a private 
 - **Checks from outside:** both sites served 200 over HTTPS, HTTP redirected to HTTPS, and `www` redirected to the bare domain. `certbot renew --dry-run` succeeded for all four names; `certbot.timer` is enabled.
 - **First minutes on the new box:** real visitors were served, the cron jobs ran (live scores at 13:40, pick9's scrapers at 13:35 and 13:40), and nothing new reached the PHP log.
 
-Still to do: the owner removes Claude's setup sudo and points the `pick55` SSH alias at the new IP. The old droplet stays in maintenance with cron stopped until it's powered off, kept for a week, then snapshotted and destroyed. Week 8's games are created on the new box.
+- **Afternoon:** the owner removed Claude's setup sudo, added `claude` to `adm` so it can read the logs, and pointed the `pick55` SSH alias at the new IP. The docs commit (`a8c449d`) was pushed and deployed with the new box's `deploy.sh`. By 15:45 the PHP log had only one new message since the cutover: pick9's `scores/index.php` line 1074 reads `->id` on a missing side pool. PHP 7.4 gave it a notice and the same empty output, so it's harmless.
+
+Still to do: the old droplet stays in maintenance with cron stopped until it's powered off (from 2026-10-28), kept for a week, then snapshotted and destroyed. Week 8's games are created on the new box.
